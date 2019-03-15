@@ -1,6 +1,6 @@
 <?php
 
-namespace MienvioMagento\general\Helper;
+namespace MienvioMagento\MienvioGeneral\Helper;
 
 use Magento\Framework\App\Helper\AbstractHelper;
 use Magento\Store\Model\ScopeInterface;
