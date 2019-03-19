@@ -15,9 +15,9 @@
                     <label>Enable</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                 </field>
-                <field id="title" translate="label" type="text" sortOrder="1" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Module Title</label>
-                    <comment>This text will be used later.</comment>
+                <field id="api" translate="label" type="text" sortOrder="1" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Api Key mienvio</label>
+                    <comment>key para conectar tu cuenta de mienvio</comment>
                 </field>
             </group>
         </section>

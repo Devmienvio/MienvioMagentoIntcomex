@@ -3,7 +3,7 @@
         <mienviogeneral>
             <general>
                 <enable>1</enable>
-                <title>Mi envio</title>
+                <api>na</api>
             </general>
         </mienviogeneral>
     </default>
