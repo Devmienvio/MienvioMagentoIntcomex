@@ -50,6 +50,9 @@ define(
                      */
                     15
                 );
+                var configValues = window.checkoutConfig;
+                console.log(configValues);
+
 
                 return this;
             },
