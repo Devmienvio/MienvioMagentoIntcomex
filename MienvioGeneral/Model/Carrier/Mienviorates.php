@@ -34,6 +34,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $this->_rateMethodFactory = $rateMethodFactory;
         $this->_logger = $logger;
         $this->_curl = $curl;
+        $this->_mienvioHelper = $helperData;
         parent::__construct($scopeConfig, $rateErrorFactory, $logger, $data);
     }
 
@@ -45,6 +46,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     public function collectRates(RateRequest $request)
     {
         //TODO: Add validation to get if the extension is enable
+        $this->_logger->critical('Error message', ['test' => 1]);
 
         $result = $this->_rateResultFactory->create();
 
