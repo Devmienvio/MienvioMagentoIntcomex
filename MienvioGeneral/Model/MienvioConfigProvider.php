@@ -19,19 +19,10 @@ class MienvioConfigProvider implements ConfigProviderInterface
         $this->_storeInfo = $storeInfo;
     }
 
-    public function getPhoneNumber()
-    {
-        return $this->_storeInfo->getStoreInformationObject()->getPhone();
-}
-
     public function getConfig()
     {
-        $storeInfo = [];
-        $storeInfo['phone'] = $this->getPhoneNumber();
-
         $config = [];
         $config['mienvioApiKey'] = $this->_mienvioHelper->getMienvioApi();
-        $config['storeInfo'] = $storeInfo;
         return $config;
     }
 }
