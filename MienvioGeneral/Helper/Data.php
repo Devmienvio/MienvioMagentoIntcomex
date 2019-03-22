@@ -14,8 +14,8 @@ class Data extends AbstractHelper
 
 
     const XML_PATH_GENERAL = 'mienviogeneral/';
-    const XML_PATH_API_KEY = 'mienviogeneral/general/api';
-    const XML_PATH_IS_ENABLE_MIENVIO = 'mienviogeneral/general/enable';
+    const XML_PATH_API_KEY = 'mienviogeneral/general/apikey';
+    const XML_PATH_IS_ENABLE_MIENVIO = 'mienviogeneral/general/active';
 
     public function getConfigValue($field, $storeId = null)
     {
