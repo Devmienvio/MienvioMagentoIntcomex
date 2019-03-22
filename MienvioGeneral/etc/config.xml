@@ -4,7 +4,7 @@
         <carriers>
             <mienviocarrier>
                 <active>0</active>
-                <apikey></apikey>
+                <apikey>NA</apikey>
                 <model>MienvioMagento\MienvioGeneral\Model\Carrier\Mienviorates</model>
             </mienviocarrier>
         </carriers>

@@ -1,5 +1,5 @@
 <?php
-namespace MienvioMagento\Services\Model\Carrier;
+namespace MienvioMagento\MienvioGeneral\Model\Carrier;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\DataObject;
@@ -45,15 +45,18 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
     public function collectRates(RateRequest $request)
     {
-        //TODO: Add validation to get if the extension is enable
-        $this->_logger->critical('Error message', ['test' => 1]);
+        $isActive = $this->_mienvioHelper->isMienvioActive();
+
+        if(!$isActive){
+            return false;
+        }
 
         $result = $this->_rateResultFactory->create();
 
         $apiKey = $this->_mienvioHelper->getMienvioApi();
-        $apiSource = $this->getConfigData('apisource');
+        $apiSource = $this->getConfigData('apikey');
 
-        if ($apiKey == "") {
+        if ($apiKey == "" || $apiSource == "NA") {
             return false;
         }
 
@@ -138,7 +141,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 }
             }
         } catch (\Exception $e) {
-            $this->_logger->debug("StarShipIT Rates Exception");
+            $this->_logger->debug("MiEnvio Rates Exception");
             $this->_logger->debug($e);
         }
 

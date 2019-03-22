@@ -14,8 +14,8 @@ class Data extends AbstractHelper
 
 
     const XML_PATH_GENERAL = 'mienviogeneral/';
-    const XML_PATH_API_KEY = 'mienviogeneral/general/apikey';
-    const XML_PATH_IS_ENABLE_MIENVIO = 'mienviogeneral/general/active';
+    const XML_PATH_API_KEY = 'carriers/mienviocarrier/apikey';
+    const XML_PATH_IS_ENABLE_MIENVIO = 'carriers/mienviocarrier/active';
 
     public function getConfigValue($field, $storeId = null)
     {
@@ -30,9 +30,9 @@ class Data extends AbstractHelper
         return $this->getConfigValue(self::XML_PATH_GENERAL .'general/'. $code, $storeId);
     }
 
-    public function isMienvioEnable($storeId = null)
+    public function isMienvioActive($storeId = null)
     {
-        return $this->getConfigValue(self::XML_PATH_IS_ENABLE_MIENVIO , $storeId);
+        return (boolean)$this->getConfigValue(self::XML_PATH_IS_ENABLE_MIENVIO , $storeId);
     }
 
     public function getMienvioApi($storeId = null)
