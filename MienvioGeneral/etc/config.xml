@@ -5,6 +5,7 @@
             <mienviocarrier>
                 <active>0</active>
                 <apikey></apikey>
+                <model>MienvioMagento\MienvioGeneral\Model\Carrier\Mienviorates</model>
             </mienviocarrier>
         </carriers>
     </default>
