@@ -100,26 +100,17 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $this->_curl->setOptions($options);
             $this->_curl->post($url, $post_data);
             $response = $this->_curl->getBody();
-
+            //$this->_curl->get("/rates?limit=1000000");
             $json_obj = json_decode($response);
-            $this->_logger->debug("response", ["resp"=> $json_obj]);
-            $rates_obj = $json_obj->{'rates'};
-            $rates_count = count($rates_obj);
-            if ($rates_count > 0) {
-                foreach ($rates_obj as $rate) {
-                    if (is_object($rate)) {
-                        // Add shipping option with shipping price
-                        $method = $this->_rateMethodFactory->create();
-                        $method->setCarrier($this->getCarrierCode());
-                        $method->setCarrierTitle($this->getConfigData('title'));
-                        $method->setMethod($rate->{'service_code'});
-                        $method->setMethodTitle($rate->{'service_name'});
-                        $method->setPrice($rate->{'total_price'});
-                        $method->setCost(0);
-                        $result->append($method);
-                    }
-                }
-            }
+            $obj_id = $json_obj->{'shipment'}->{'object_id'};
+            $this->_logger->debug("obj", ["obj" => $obj_id]);
+            $this->_curl->get($url . '/'.$obj_id. '/rates?limit=1000000');
+            $responseRates = $this->_curl->getBody();
+            $json_obj_rates = json_decode($responseRates);
+            $this->_logger->debug("info", ["rat" => $json_obj_rates]);
+
+
+
         } catch (\Exception $e) {
             $this->_logger->debug("Rates Exception");
             $this->_logger->debug($e);
