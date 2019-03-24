@@ -82,47 +82,27 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             }
             $packageValue = $request->getPackageValue();
             $packageWeight = $request->getPackageWeight() * 1000;
-
-            $url = 'https://api.starshipit.com/api/rates/shopify?apiKey=';
-            $url = $url . $apiKey . '&integration_type=magento&source=' . $apiSource;
+            // TODO: Change api url to production
+            // Call Api to create rutes
+            $url = 'http://localhost:8000/api/shipments';
             $post_data = '{
-                      "rate": {
-                        "destination":{  
-                          "country": "' . $destCountryId . '",
-                          "postal_code": "' . $destPostcode . '",
-                          "province": "' . $destRegionCode . '",
-                          "city": "' . $destCity . '",
-                          "name": null,
-                          "address1": "' . $destStreet . '",
-                          "address2": "' . $destSuburb . '",
-                          "address3": null,
-                          "phone": null,
-                          "fax": null,
-                          "address_type": null,
-                          "company_name": null
-                        },
-                        "items":[
-                          {
-                            "name": "Total Items",
-                            "sku": null,
-                            "quantity": 1,
-                            "grams": ' . $packageWeight . ' ,
-                            "price": ' . $packageValue . ',
-                            "vendor": null,
-                            "requires_shipping": true,
-                            "taxable": true,
-                            "fulfillment_service": "manual"
-                          }
-                        ]
-                      }
+                     "object_purpose": "QUOTE",
+                     "zipcode_from": 38040,
+                     "zipcode_to": 76100,
+                     "weight": 1,
+                     "source_type": "web_portal",
+                     "length": 10,
+                     "width": 10,
+                     "height": 10
                     }';
 
-            $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json'] ];
+            $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
             $this->_curl->post($url, $post_data);
             $response = $this->_curl->getBody();
 
             $json_obj = json_decode($response);
+            $this->_logger->debug("response", ["resp"=> $json_obj]);
             $rates_obj = $json_obj->{'rates'};
             $rates_count = count($rates_obj);
             if ($rates_count > 0) {
@@ -141,7 +121,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 }
             }
         } catch (\Exception $e) {
-            $this->_logger->debug("MiEnvio Rates Exception");
+            $this->_logger->debug("Rates Exception");
             $this->_logger->debug($e);
         }
 
