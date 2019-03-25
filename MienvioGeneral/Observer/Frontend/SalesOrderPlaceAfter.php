@@ -6,6 +6,7 @@ use Magento\Framework\Event\ObserverInterface;
 use Maurisource\MageShip\Model\ResourceModel\Rates\CollectionFactory as RateFactory;
 use Magento\Quote\Model\ResourceModel\Quote\Address\Rate\CollectionFactory;
 use Magento\Quote\Model\QuoteRepository;
+use Psr\Log\LoggerInterface;
 
 class SalesOrderPlaceAfter implements ObserverInterface
 {
@@ -16,26 +17,25 @@ class SalesOrderPlaceAfter implements ObserverInterface
 
     public function __construct(
         CollectionFactory $collectionFactory,
-        QuoteRepository $quoteRepository
+        QuoteRepository $quoteRepository,
+        \Magento\Framework\HTTP\Client\Curl $curl,
+        LoggerInterface $logger
     ) {
         $this->collectionFactory = $collectionFactory;
         $this->quoteRepository = $quoteRepository;
         $this->_code = 'mienviocarrier';
-
+        $this->_logger = $logger;
+        $this->_curl = $curl;
     }
 
     public function execute(Observer $observer)
     {
         /** @var \Magento\Sales\Model\Order $order */
         $order = $observer->getData('order');
-
         $shippingMethodObject = $order->getShippingMethod(true);
+        $this->_logger->debug("obj", ["obj" => $shippingMethodObject->getCarrierCode()]);
 
         if ($shippingMethodObject->getCarrierCode() != $this->_code) {
-            return $this;
-        }
-
-        if ($shippingMethodObject->getMethod() == \Maurisource\MageShip\Model\Carrier::DEFAULT_METHOD) {
             return $this;
         }
 
