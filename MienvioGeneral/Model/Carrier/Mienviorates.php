@@ -29,7 +29,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         Helper $helperData,
         array $data = []
     ) {
-        $this->_code = 'ssi';
+        $this->_code = 'mienviocarrier';
         $this->_rateResultFactory = $rateResultFactory;
         $this->_rateMethodFactory = $rateMethodFactory;
         $this->_logger = $logger;
@@ -119,9 +119,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                         // Add shipping option with shipping price
                         $method = $this->_rateMethodFactory->create();
                         $method->setCarrier($this->getCarrierCode());
-                        $method->setCarrierTitle('mienvio titulo');
+                        $method->setCarrierTitle($rate->{'provider'});
                         $method->setMethod($rate->{'servicelevel'});
-                        $method->setMethodTitle($rate->{'provider'});
+                        $method->setMethodTitle($rate->{'servicelevel'});
                         $method->setPrice($rate->{'amount'});
                         $method->setCost(0);
                         $result->append($method);
