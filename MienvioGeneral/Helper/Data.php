@@ -4,10 +4,7 @@ namespace MienvioMagento\MienvioGeneral\Helper;
 
 use Magento\Framework\App\Helper\AbstractHelper;
 use Magento\Store\Model\ScopeInterface;
-use Magento\Customer\Model\Address\Config;
-use Magento\Directory\Model\CountryFactory;
-use Magento\Directory\Model\RegionFactory;
-use Magento\Framework\DataObject;
+
 
 class Data extends AbstractHelper
 {
