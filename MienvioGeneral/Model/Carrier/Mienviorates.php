@@ -108,14 +108,31 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $responseRates = $this->_curl->getBody();
             $json_obj_rates = json_decode($responseRates);
             $this->_logger->debug("info", ["rat" => $json_obj_rates]);
-
-
-
+            $totalCount = $json_obj_rates->{'total_count'};
+            if($totalCount > 0 ){
+                $this->_logger->debug("if", ["if" => $totalCount]);
+                $rates_obj =  $json_obj_rates->{'results'};
+                foreach ($rates_obj as $rate) {
+                    $this->_logger->debug("foreach", ["foreach" => $totalCount]);
+                    if (is_object($rate)) {
+                        $this->_logger->debug("isobject", ["isobject" => $totalCount]);
+                        // Add shipping option with shipping price
+                        $method = $this->_rateMethodFactory->create();
+                        $method->setCarrier($this->getCarrierCode());
+                        $method->setCarrierTitle('mienvio titulo');
+                        $method->setMethod($rate->{'servicelevel'});
+                        $method->setMethodTitle($rate->{'provider'});
+                        $method->setPrice($rate->{'amount'});
+                        $method->setCost(0);
+                        $result->append($method);
+                    }
+                }
+            }
         } catch (\Exception $e) {
             $this->_logger->debug("Rates Exception");
             $this->_logger->debug($e);
         }
-
+        $this->_logger->debug("result", ["result" => $result]);
         return $result;
     }
 
