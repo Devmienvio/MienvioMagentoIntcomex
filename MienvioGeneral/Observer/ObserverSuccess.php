@@ -1,18 +1,15 @@
 <?php
-namespace MienvioMagento\MienvioGeneral\Observer\Frontend;
+namespace MienvioMagento\MienvioGeneral\Observer;
 
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
-use Maurisource\MageShip\Model\ResourceModel\Rates\CollectionFactory as RateFactory;
 use Magento\Quote\Model\ResourceModel\Quote\Address\Rate\CollectionFactory;
 use Magento\Quote\Model\QuoteRepository;
 use Psr\Log\LoggerInterface;
 
-class SalesOrderPlaceAfter implements ObserverInterface
+class ObserverSuccess implements ObserverInterface
 {
     private $collectionFactory;
-    private $rateFactory;
-    private $rateRepository;
     private $quoteRepository;
 
     public function __construct(
@@ -36,8 +33,8 @@ class SalesOrderPlaceAfter implements ObserverInterface
         $statuscode = $observer->getEvent()->getOrder()->getStatus();
         $statuslabel = $observer->getEvent()->getOrder()->getStatusLabel();
 
-        $this->_logger->debug("statuslabel", ["statuslabel" => $statuslabel]);
-        $this->_logger->debug("SalesOrderPlaceAfter", ["SalesOrderPlaceAfter" => $shippingMethodObject->getCarrierCode()]);
+        $this->_logger->info("statuslabel", ["statuslabel" => $statuslabel]);
+        $this->_logger->info("SalesOrderPlaceAfter", ["SalesOrderPlaceAfter" => $shippingMethodObject->getCarrierCode()]);
 
         if ($shippingMethodObject->getCarrierCode() != $this->_code) {
             return $this;
