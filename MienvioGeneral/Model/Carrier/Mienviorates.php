@@ -90,9 +90,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $packageWeight = $request->getPackageWeight();
             $fromZipCode = $request->getPostcode();
             $realWeight = $this->convertWeight($packageWeight);
-            $this->_logger->debug("we", ["we" => $packageWeight,
-                "valie pa" => $packageValue, "unit" => $this->convertWeight($packageWeight)]);
-            $this->_logger->debug("des", ["des" => $destPostcode]);
             // TODO: Change api url to production
             // Call Api to create rutes
             $url = 'http://localhost:8000/api/shipments';

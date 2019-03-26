@@ -6,16 +6,19 @@ use Magento\Framework\Event\ObserverInterface;
 use Magento\Quote\Model\ResourceModel\Quote\Address\Rate\CollectionFactory;
 use Magento\Quote\Model\QuoteRepository;
 use Psr\Log\LoggerInterface;
+use MienvioMagento\MienvioGeneral\Helper\Data as Helper;
 
 class ObserverSuccess implements ObserverInterface
 {
     private $collectionFactory;
     private $quoteRepository;
+    const XML_PATH_Street_store = 'shipping/origin/street_line2';
 
     public function __construct(
         CollectionFactory $collectionFactory,
         QuoteRepository $quoteRepository,
         \Magento\Framework\HTTP\Client\Curl $curl,
+        Helper $helperData,
         LoggerInterface $logger
     ) {
         $this->collectionFactory = $collectionFactory;
@@ -23,6 +26,7 @@ class ObserverSuccess implements ObserverInterface
         $this->_code = 'mienviocarrier';
         $this->_api = 'http://localhost:8000/';
         $this->_logger = $logger;
+        $this->_mienvioHelper = $helperData;
         $this->_curl = $curl;
     }
 
@@ -63,7 +67,8 @@ class ObserverSuccess implements ObserverInterface
             $customerName= $shippingAddress->getName();
             $customermail= $shippingAddress->getEmail();
             $customerPhone= $shippingAddress->getTelephone();
-
+            $fromZipCode =  $this->_mienvioHelper->getOriginAddress();
+            $this->_logger->info("cc", ["cc" => $fromZipCode]);
             // Logic to create address
             $addressUrl = $this->_api . '/api/addresses';
             $fromData = '{
