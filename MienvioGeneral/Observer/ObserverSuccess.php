@@ -21,6 +21,7 @@ class ObserverSuccess implements ObserverInterface
         $this->collectionFactory = $collectionFactory;
         $this->quoteRepository = $quoteRepository;
         $this->_code = 'mienviocarrier';
+        $this->_api = 'http://localhost:8000/';
         $this->_logger = $logger;
         $this->_curl = $curl;
     }
@@ -30,14 +31,68 @@ class ObserverSuccess implements ObserverInterface
         /** @var \Magento\Sales\Model\Order $order */
         $order = $observer->getData('order');
         $shippingMethodObject = $order->getShippingMethod(true);
-        $statuscode = $observer->getEvent()->getOrder()->getStatus();
-        $statuslabel = $observer->getEvent()->getOrder()->getStatusLabel();
-
-        $this->_logger->info("statuslabel", ["statuslabel" => $statuslabel]);
-        $this->_logger->info("SalesOrderPlaceAfter", ["SalesOrderPlaceAfter" => $shippingMethodObject->getCarrierCode()]);
+        $shipping_id = $shippingMethodObject->getMethod();
 
         if ($shippingMethodObject->getCarrierCode() != $this->_code) {
             return $this;
+        }
+        // Logic to save orders in mienvio api
+        try{
+            $url = 'api/shipments';
+            $order = $observer->getEvent()->getOrder();
+            $Carriers = $shipping_id;
+            $order->setMienvioCarriers($Carriers);
+            $orderId = $order->getId();
+            $this->_logger->info("order_id", ["order_id" => $orderId]);
+
+            $quoteId = $order->getQuoteId();
+
+            if ($quoteId === null) {
+                return $this;
+            }
+
+            $quote = $this->quoteRepository->get($quoteId);
+
+            $shippingAddress = $quote->getShippingAddress();
+
+            if ($shippingAddress === null) {
+                return $this;
+            }
+            $this->_logger->info("data", ["data" => $shippingAddress->getData()]);
+            $this->_logger->info("order", ["order" => $order->getData()]);
+            $customerName= $shippingAddress->getName();
+            $customermail= $shippingAddress->getEmail();
+            $customerPhone= $shippingAddress->getTelephone();
+
+            // Logic to create address
+            $addressUrl = $this->_api . '/api/addresses';
+            $fromData = '{
+                "object_type": "PURCHASE",
+                "name": "'.$customerName.'",
+                "street": to.street,
+                "street2": to.street2,
+                "zipcode": to.zipcode,
+                "email": "'.$customermail.'",
+                "phone": '.$customerPhone.'",
+                "reference": ""
+                }
+            ';
+            $toData = '{
+                "object_type": "PURCHASE",
+                "name": "'.$customerName.'",
+                "street": "'. $shippingAddress->getStreetFull().'",
+                "street2": "",
+                "zipcode": '.$shippingAddress->getPostcode().'",
+                "email": "'.$customermail.'",
+                "phone": '.$customerPhone.'",
+                "reference": ""
+                }
+            ';
+            $this->_logger->info("obje", ["toData" => $toData,"fromData" => $fromData]);
+
+        } catch (\Exception $e) {
+            $this->_logger->info("error saving new shipping method Exception");
+            $this->_logger->info($e->getMessage());
         }
 
         return $this;
