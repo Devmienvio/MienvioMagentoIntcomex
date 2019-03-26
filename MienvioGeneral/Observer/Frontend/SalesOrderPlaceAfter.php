@@ -33,7 +33,11 @@ class SalesOrderPlaceAfter implements ObserverInterface
         /** @var \Magento\Sales\Model\Order $order */
         $order = $observer->getData('order');
         $shippingMethodObject = $order->getShippingMethod(true);
-        $this->_logger->debug("obj", ["obj" => $shippingMethodObject->getCarrierCode()]);
+        $statuscode = $observer->getEvent()->getOrder()->getStatus();
+        $statuslabel = $observer->getEvent()->getOrder()->getStatusLabel();
+
+        $this->_logger->debug("statuslabel", ["statuslabel" => $statuslabel]);
+        $this->_logger->debug("SalesOrderPlaceAfter", ["SalesOrderPlaceAfter" => $shippingMethodObject->getCarrierCode()]);
 
         if ($shippingMethodObject->getCarrierCode() != $this->_code) {
             return $this;
