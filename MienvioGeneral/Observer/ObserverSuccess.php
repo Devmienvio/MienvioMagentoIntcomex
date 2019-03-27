@@ -24,7 +24,6 @@ class ObserverSuccess implements ObserverInterface
         $this->collectionFactory = $collectionFactory;
         $this->quoteRepository = $quoteRepository;
         $this->_code = 'mienviocarrier';
-        $this->_api = 'http://localhost:8000/';
         $this->_logger = $logger;
         $this->_mienvioHelper = $helperData;
         $this->_curl = $curl;
@@ -42,12 +41,13 @@ class ObserverSuccess implements ObserverInterface
         }
         // Logic to save orders in mienvio api
         try{
+            $env =  $this->_mienvioHelper->getEnvironment();
             $url = 'api/shipments';
             $order = $observer->getEvent()->getOrder();
             $Carriers = $shipping_id;
             $order->setMienvioCarriers($Carriers);
             $orderId = $order->getId();
-            $this->_logger->info("order_id", ["order_id" => $orderId]);
+            $apiKey = $this->_mienvioHelper->getMienvioApi();
 
             $quoteId = $order->getQuoteId();
 
@@ -67,33 +67,41 @@ class ObserverSuccess implements ObserverInterface
             $customerName= $shippingAddress->getName();
             $customermail= $shippingAddress->getEmail();
             $customerPhone= $shippingAddress->getTelephone();
-            $fromZipCode =  $this->_mienvioHelper->getOriginAddress();
+            $fromZipCode =  $this->_mienvioHelper->getOriginStreet();
             $this->_logger->info("cc", ["cc" => $fromZipCode]);
             // Logic to create address
-            $addressUrl = $this->_api . '/api/addresses';
+            $addressUrl = $env . 'api/addresses';
             $fromData = '{
                 "object_type": "PURCHASE",
                 "name": "'.$customerName.'",
-                "street": to.street,
-                "street2": to.street2,
-                "zipcode": to.zipcode,
+                "street": "'.$this->_mienvioHelper->getOriginStreet().'",
+                "street2": "'.$this->_mienvioHelper->getOriginStreet2().'",
+                "zipcode": '.$this->_mienvioHelper->getOriginZipCode().',
                 "email": "'.$customermail.'",
-                "phone": '.$customerPhone.'",
+                "phone": "'.$customerPhone.'",
                 "reference": ""
-                }
-            ';
+                }';
             $toData = '{
                 "object_type": "PURCHASE",
                 "name": "'.$customerName.'",
-                "street": "'. $shippingAddress->getStreetFull().'",
-                "street2": "",
-                "zipcode": '.$shippingAddress->getPostcode().'",
+                "street": "'. $shippingAddress->getStreetLine(1).'",
+                "street2":  "'. $shippingAddress->getStreetLine(2).'",
+                "zipcode": '.$shippingAddress->getPostcode().',
                 "email": "'.$customermail.'",
-                "phone": '.$customerPhone.'",
+                "phone": "'.$customerPhone.'",
                 "reference": ""
                 }
             ';
             $this->_logger->info("obje", ["toData" => $toData,"fromData" => $fromData]);
+            $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
+            $this->_curl->setOptions($options);
+            $this->_curl->post($addressUrl, $fromData);
+            $responseFROM = $this->_curl->getBody();
+            $json_obj_from = json_decode($responseFROM);
+            $this->_curl->post($addressUrl, $toData);
+            $responseTO = $this->_curl->getBody();
+            $json_obj_to = json_decode($responseTO);
+            $this->_logger->info("responses", ["to" => $json_obj_to,"from" => $json_obj_from]);
 
         } catch (\Exception $e) {
             $this->_logger->info("error saving new shipping method Exception");

@@ -12,6 +12,10 @@
                     <label>API Key</label>
                     <comment>Available under your Mienvio account. Go to Settings &gt; API</comment>
                 </field>
+                <field id="environment" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Ambiente de trabajo</label>
+                    <source_model>MienvioMagento\MienvioGeneral\Model\Config\Source\Environments</source_model>
+                </field>
             </group>
         </section>
     </system>

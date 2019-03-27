@@ -60,13 +60,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
         $apiKey = $this->_mienvioHelper->getMienvioApi();
         $apiSource = $this->getConfigData('apikey');
-
+        $env =  $this->_mienvioHelper->getEnvironment();
         if ($apiKey == "" || $apiSource == "NA") {
             return false;
         }
 
         try {
-            $this->_logger->debug("obj", ["obj" => $request]);
             $destCountryId = $request->getDestCountryId();
             $destCountry = $request->getDestCountry();
             $destRegion = $request->getDestRegionId();
@@ -92,7 +91,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $realWeight = $this->convertWeight($packageWeight);
             // TODO: Change api url to production
             // Call Api to create rutes
-            $url = 'http://localhost:8000/api/shipments';
+            $url = $env.'api/shipments';
             $post_data = '{
                      "object_purpose": "QUOTE",
                      "zipcode_from": '.$fromZipCode.',
