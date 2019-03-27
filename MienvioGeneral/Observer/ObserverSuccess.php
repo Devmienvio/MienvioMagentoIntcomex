@@ -101,8 +101,26 @@ class ObserverSuccess implements ObserverInterface
             $this->_curl->post($addressUrl, $toData);
             $responseTO = $this->_curl->getBody();
             $json_obj_to = json_decode($responseTO);
-            $this->_logger->info("responses", ["to" => $json_obj_to,"from" => $json_obj_from]);
-
+            $toAddress = $json_obj_to->{'address'}->{'object_id'};
+            $FromAddress = $json_obj_from->{'address'}->{'object_id'};
+            $this->_logger->info("responses", ["to" => $toAddress,"from" => $FromAddress]);
+            // TODO: Finish logic to save shipment
+            $orderObject = '{
+              "object_purpose": "PURCHASE",
+              "address_from": '.$FromAddress.',
+              "address_to": '.$toAddress.',
+              "weight": shipment.weight,
+              "length": 10,
+              "source_type": "web_portal",
+              "height": 10,
+              "description": shipment.description,
+              "width": 10,
+              "declared_value": shipment.insuredAmount,
+              "rate":,
+              null,
+              null
+            }
+            ';
         } catch (\Exception $e) {
             $this->_logger->info("error saving new shipping method Exception");
             $this->_logger->info($e->getMessage());
