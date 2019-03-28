@@ -52,7 +52,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     {
         $isActive = $this->_mienvioHelper->isMienvioActive();
 
-        if(!$isActive){
+        if (!$isActive) {
             return false;
         }
 
@@ -101,7 +101,10 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 ]
             );
 
-            foreach($request->getAllItems() as $item){
+            $items = $request->getAllItems();
+            $this->_logger->debug('items', [$items]);
+
+            foreach($items as $item){
                  $length = $item->getTsDimensionsLength();
                  $width = $item->getTsDimensionsWidth();
                  $height = $item->getTsDimensionsHeight();
