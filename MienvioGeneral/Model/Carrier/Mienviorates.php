@@ -60,7 +60,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
         $apiKey = $this->_mienvioHelper->getMienvioApi();
         $apiSource = $this->getConfigData('apikey');
-        $env =  $this->_mienvioHelper->getEnvironment();
+        $baseUrl =  $this->_mienvioHelper->getEnvironment();
         if ($apiKey == "" || $apiSource == "NA") {
             return false;
         }
@@ -109,10 +109,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                  $this->_logger->debug('item measures', ['lengthh' => $length, 'widthh' => $width, 'heighht' => $height]);
             }
 
+            $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
+            $packages = $this->getAvailablePackages($baseUrl, $options);
 
             // TODO: Change api url to production
             // Call Api to create rutes
-            $url = $env.'api/shipments';
+            $url = $baseUrl.'api/shipments';
             $post_data = '{
                      "object_purpose": "QUOTE",
                      "zipcode_from": '.$fromZipCode.',
@@ -127,7 +129,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $this->_logger->debug("postdata", ["postdata" => $post_data]);
 
 
-            $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
+
             $this->_curl->setOptions($options);
             $this->_curl->post($url, $post_data);
             $response = $this->_curl->getBody();
@@ -138,6 +140,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $json_obj_rates = json_decode($responseRates);
             $totalCount = $json_obj_rates->{'total_count'};
             $this->_logger->debug("rates", ["rates" => $json_obj_rates]);
+
             if($totalCount > 0 ){
                 $rates_obj =  $json_obj_rates->{'results'};
                 foreach ($rates_obj as $rate) {
@@ -161,6 +164,31 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         return $result;
     }
 
+    /**
+     * Retrieve user packages
+     *
+     * @param  string $baseUrl
+     * @return array
+     */
+    private function getAvailablePackages($baseUrl, $options)
+    {
+        $url = $baseUrl . '/packages';
+        $this->_curl->setOptions($options);
+        $this->_curl->get($url);
+        $response = $this->_curl->getBody();
+        $json_obj = json_decode($response);
+
+        $this->_logger->debug("packages", ["packages" => $json_obj]);
+
+        return $json_obj;
+    }
+
+    /**
+     * Retrieves weight in KG
+     *
+     * @param  float $_weigth
+     * @return float
+     */
     private function convertWeight($_weigth){
         $storeWeightUnit = $this->directoryHelper->getWeightUnit();
         $weight = 0;
