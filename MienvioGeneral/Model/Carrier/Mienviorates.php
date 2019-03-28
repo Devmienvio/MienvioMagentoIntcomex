@@ -92,39 +92,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $fromZipCode = $request->getPostcode();
             $realWeight = $this->convertWeight($packageWeight);
 
-            $this->_logger->debug('package measures',
-                ['length' => $request->getPackageLength(),
-                'width' => $request->getPackageWidth(),
-                'height' => $request->getPackageHeight(),
-                'weight' => $request->getPackageWeight(),
-                'value' => $request->getPackageValue()
-                ]
-            );
-
             $items = $request->getAllItems();
             $this->_logger->debug('items', [$items]);
-
-            foreach($items as $item)
-            {
-               $productName = $item->getName();
-
-               $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-               $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
-               $length = $product->getData('ts_dimensions_length');
-               $width = $product->getData('ts_dimensions_width');
-               $height = $product->getData('ts_dimensions_height');
-               $weight = $product->getData('weight');
-
-               $this->_logger->debug('product', ['id' => $item->getId(), 'name' => $productName, '$length' => $length, '$width' => $width, '$height' => $height, '$weight' => $weight]);
-            }
-
-            foreach($items as $item){
-                 $length = $item->getTsDimensionsLength();
-                 $width = $item->getTsDimensionsWidth();
-                 $height = $item->getTsDimensionsHeight();
-
-                 $this->_logger->debug('item measures', ['lengthh' => $length, 'widthh' => $width, 'heighht' => $height]);
-            }
+            $this->calculateOrderMeasures($items);
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
 
@@ -183,6 +153,27 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $this->_logger->debug($e);
         }
         return $result;
+    }
+
+    /**
+     * Calculate order measures
+     *
+     * @param  array $items
+     * @return array
+     */
+    private function calculateOrderMeasures($items)
+    {
+        foreach ($items as $item) {
+            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+            $productName = $item->getName();
+            $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
+            $length = $product->getData('ts_dimensions_length');
+            $width  = $product->getData('ts_dimensions_width');
+            $height = $product->getData('ts_dimensions_height');
+            $weight = $product->getData('weight');
+
+            $this->_logger->debug('product', ['id' => $item->getId(), 'name' => $productName, '$length' => $length, '$width' => $width, '$height' => $height, '$weight' => $weight]);
+        }
     }
 
     /**
