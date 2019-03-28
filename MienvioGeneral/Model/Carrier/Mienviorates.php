@@ -100,9 +100,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
                 $productName = $item->getName();
                 $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
-                $length = $product->getData('ts_dimensions_length');
-                $width  = $product->getData('ts_dimensions_width');
-                $height = $product->getData('ts_dimensions_height');
+                $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
+                $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
+                $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
                 $weight = $product->getData('weight');
                 $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
                 $packageVolWeight += $volWeight;
@@ -215,7 +215,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      * @param  float $_weigth
      * @return float
      */
-    private function convertWeight($_weigth){
+    private function convertWeight($_weigth)
+    {
         $storeWeightUnit = $this->directoryHelper->getWeightUnit();
         $weight = 0;
         switch ($storeWeightUnit) {
@@ -226,7 +227,35 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $weight = $_weigth;
                 break;
         }
+
         return ceil($weight);
     }
 
+    private function convertMeasures($_measure)
+    {
+        $storeMeasureUnit = $this->directoryHelper->getWeightUnit();
+        $weight = 0;
+
+        switch ($storeWeightUnit) {
+            case 'lbs':
+                $weight = $_weigth * $this->lbs_kg;
+                break;
+            case 'kgs':
+                $weight = $_weigth;
+                break;
+        }
+
+        return ceil($weight);
+    }
+
+    /**
+     * Convert inches to cms
+     *
+     * @param  float $inches
+     * @return float
+     */
+    private function convertInchesToCms($inches)
+    {
+        return $inches * 2.54;
+    }
 }
