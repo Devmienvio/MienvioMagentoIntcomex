@@ -92,6 +92,10 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $fromZipCode = $request->getPostcode();
             $realWeight = $this->convertWeight($packageWeight);
 
+            $this->_logger->debug('package measures',
+                ['length' => $request->getPackageLength(), 'width' => $request->getPackageWidth(), 'height' => $request->getPackageHeight()]
+            );
+
             foreach($request->getAllItems() as $item){
                  $length = $item->getTsDimensionsLength();
                  $width = $item->getTsDimensionsWidth();
