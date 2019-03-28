@@ -93,7 +93,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $realWeight = $this->convertWeight($packageWeight);
 
             $items = $request->getAllItems();
-            $this->_logger->debug('items', [$items]);
             $packageVolWeight = 0;
 
             foreach ($items as $item) {
@@ -219,23 +218,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     {
         $storeWeightUnit = $this->directoryHelper->getWeightUnit();
         $weight = 0;
-        switch ($storeWeightUnit) {
-            case 'lbs':
-                $weight = $_weigth * $this->lbs_kg;
-                break;
-            case 'kgs':
-                $weight = $_weigth;
-                break;
-        }
-
-        return ceil($weight);
-    }
-
-    private function convertMeasures($_measure)
-    {
-        $storeMeasureUnit = $this->directoryHelper->getWeightUnit();
-        $weight = 0;
-
         switch ($storeWeightUnit) {
             case 'lbs':
                 $weight = $_weigth * $this->lbs_kg;
