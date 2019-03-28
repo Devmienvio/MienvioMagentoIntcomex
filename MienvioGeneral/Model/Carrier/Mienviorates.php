@@ -94,6 +94,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             $items = $request->getAllItems();
             $this->_logger->debug('items', [$items]);
+            $packageVolWeight = 0;
 
             foreach ($items as $item) {
                 $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
@@ -103,9 +104,16 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $width  = $product->getData('ts_dimensions_width');
                 $height = $product->getData('ts_dimensions_height');
                 $weight = $product->getData('weight');
+                $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
+                $packageVolWeight += $volWeight;
 
-                $this->_logger->debug('product', ['id' => $item->getId(), 'name' => $productName, '$length' => $length, '$width' => $width, '$height' => $height, '$weight' => $weight]);
+                $this->_logger->debug('product',
+                ['id' => $item->getId(), 'name' => $productName,
+                '$length' => $length, '$width' => $width,
+                '$height' => $height, '$weight' => $weight, '$volWeight' => $volWeight]);
             }
+
+            $this->_logger->debug('product', ['$volWeight' => $packageVolWeight]);
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
 
@@ -114,7 +122,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             } catch (\Exception $e) {
                 $this->_logger->debug('Error', []);
             }
-
 
             // TODO: Change api url to production
             // Call Api to create rutes
@@ -166,6 +173,20 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         return $result;
     }
 
+    /**
+     * Calculates volumetric weight of given measures
+     *
+     * @param  float $length
+     * @param  float $width
+     * @param  float $height
+     * @return float
+     */
+    private function calculateVolumetricWeight($length, $width, $height)
+    {
+        $volumetricWeight = round(((1 * $length * $width * $height) / 5000), 4);
+
+		return ($volumetricWeight > $weight) ? $volumetricWeight : $weight;
+    }
 
     /**
      * Retrieve user packages
