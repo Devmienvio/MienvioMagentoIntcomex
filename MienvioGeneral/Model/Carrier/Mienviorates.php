@@ -75,6 +75,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $destSuburb = "";
             $destCity = $request->getDestCity();
             $destPostcode = $request->getDestPostcode();
+
             if ($destFullStreet != null && $destFullStreet != "") {
                 $destFullStreetArray = explode("\n", $destFullStreet);
                 $count = count($destFullStreetArray);
@@ -85,10 +86,21 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                     $destSuburb = $destFullStreetArray[1];
                 }
             }
+
             $packageValue = $request->getPackageValue();
             $packageWeight = $request->getPackageWeight();
             $fromZipCode = $request->getPostcode();
             $realWeight = $this->convertWeight($packageWeight);
+
+            foreach($request->getAllItems() as $item){
+                 $length = $item->getLength();
+                 $width = $item->getWidth();
+                 $height = $item->getHeight();
+
+                 $this->_logger->debug('item measures', ['length' => $length, 'width' => $width, 'height' => $height]);
+            }
+
+
             // TODO: Change api url to production
             // Call Api to create rutes
             $url = $env.'api/shipments';
@@ -102,6 +114,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                      "width": 10,
                      "height": 10
                     }';
+
             $this->_logger->debug("postdata", ["postdata" => $post_data]);
 
 
