@@ -93,7 +93,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $realWeight = $this->convertWeight($packageWeight);
 
             $this->_logger->debug('package measures',
-                ['length' => $request->getPackageLength(), 'width' => $request->getPackageWidth(), 'height' => $request->getPackageHeight()]
+                ['length' => $request->getPackageLength(),
+                'width' => $request->getPackageWidth(),
+                'height' => $request->getPackageHeight(),
+                'weight' => $request->getPackageWeight(),
+                'value' => $request->getPackageValue()
+                ]
             );
 
             foreach($request->getAllItems() as $item){
