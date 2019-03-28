@@ -94,7 +94,18 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             $items = $request->getAllItems();
             $this->_logger->debug('items', [$items]);
-            $this->calculateOrderMeasures($items);
+
+            foreach ($items as $item) {
+                $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+                $productName = $item->getName();
+                $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
+                $length = $product->getData('ts_dimensions_length');
+                $width  = $product->getData('ts_dimensions_width');
+                $height = $product->getData('ts_dimensions_height');
+                $weight = $product->getData('weight');
+
+                $this->_logger->debug('product', ['id' => $item->getId(), 'name' => $productName, '$length' => $length, '$width' => $width, '$height' => $height, '$weight' => $weight]);
+            }
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
 
@@ -155,26 +166,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         return $result;
     }
 
-    /**
-     * Calculate order measures
-     *
-     * @param  array $items
-     * @return array
-     */
-    private function calculateOrderMeasures($items)
-    {
-        foreach ($items as $item) {
-            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-            $productName = $item->getName();
-            $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
-            $length = $product->getData('ts_dimensions_length');
-            $width  = $product->getData('ts_dimensions_width');
-            $height = $product->getData('ts_dimensions_height');
-            $weight = $product->getData('weight');
-
-            $this->_logger->debug('product', ['id' => $item->getId(), 'name' => $productName, '$length' => $length, '$width' => $width, '$height' => $height, '$weight' => $weight]);
-        }
-    }
 
     /**
      * Retrieve user packages
