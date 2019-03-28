@@ -120,7 +120,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             // TODO: Change api url to production
             // Call Api to create rutes
-            $url = $baseUrl.'api/shipments';
+            $url = $baseUrl . 'api/shipments';
             $post_data = '{
                      "object_purpose": "QUOTE",
                      "zipcode_from": '.$fromZipCode.',
@@ -176,15 +176,16 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     private function getAvailablePackages($baseUrl, $options)
     {
-        $url = 'https://sandbox.mienvio.mx/api/packages';
+        $url = $baseUrl . 'api/packages';
         $this->_curl->setOptions($options);
         $this->_curl->get($url);
         $response = $this->_curl->getBody();
         $json_obj = json_decode($response);
+        $packages = $json_obj->{'results'};
 
-        $this->_logger->debug("packages", ["packages" => $json_obj]);
+        $this->_logger->debug("packages", ["packages" => $packages]);
 
-        return $json_obj;
+        return $packages;
     }
 
     /**
