@@ -104,6 +104,17 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $items = $request->getAllItems();
             $this->_logger->debug('items', [$items]);
 
+            foreach($items as $item)
+            {
+               $productName = $item->getName();
+
+               $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+               $product = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getId());
+               $shippingCode = $product->getData('shipping_code');
+
+               $this->_logger->debug('product', ['name' => $productName, '$shippingCode' => $shippingCode]);
+            }
+
             foreach($items as $item){
                  $length = $item->getTsDimensionsLength();
                  $width = $item->getTsDimensionsWidth();
