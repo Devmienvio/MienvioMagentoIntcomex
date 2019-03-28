@@ -185,7 +185,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     {
         $volumetricWeight = round(((1 * $length * $width * $height) / 5000), 4);
 
-		return ($volumetricWeight > $weight) ? $volumetricWeight : $weight;
+		return $volumetricWeight;
     }
 
     /**
