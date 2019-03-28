@@ -110,11 +110,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             }
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
-            /*try {
+
+            try {
                 $packages = $this->getAvailablePackages($baseUrl, $options);
             } catch (\Exception $e) {
                 $this->_logger->debug('Error', []);
-            }*/
+            }
 
 
             // TODO: Change api url to production
@@ -175,7 +176,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     private function getAvailablePackages($baseUrl, $options)
     {
-        $url = $baseUrl . '/packages';
+        $url = 'https://sandbox.mienvio.mx/api/packages';
         $this->_curl->setOptions($options);
         $this->_curl->get($url);
         $response = $this->_curl->getBody();
