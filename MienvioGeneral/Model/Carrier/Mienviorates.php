@@ -113,8 +113,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 '$height' => $height, '$weight' => $weight, '$volWeight' => $volWeight]);
             }
 
-            $this->_logger->debug('product', ['$volWeight' => $packageVolWeight]);
-
+            $maxWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
+            $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $maxWeight]);
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
 
             try {
@@ -127,15 +127,16 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             // Call Api to create rutes
             $url = $baseUrl . 'api/shipments';
             $post_data = '{
-                     "object_purpose": "QUOTE",
-                     "zipcode_from": '.$fromZipCode.',
-                     "zipcode_to": '.$destPostcode.',
-                     "weight": '.$realWeight.',
-                     "source_type": "web_portal",
-                     "length": 10,
-                     "width": 10,
-                     "height": 10
-                    }';
+                 "object_purpose": "QUOTE",
+                 "zipcode_from": ' . $fromZipCode . ',
+                 "zipcode_to": ' . $destPostcode . ',
+                 "weight": ' . $maxWeight . ',
+                 "declared_value :" ' . $packageValue .',
+                 "source_type" : "api",
+                 "length" : 10,
+                 "width": 10,
+                 "height": 10
+            }';
 
             $this->_logger->debug("postdata", ["postdata" => $post_data]);
 
@@ -150,11 +151,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $totalCount = $json_obj_rates->{'total_count'};
             $this->_logger->debug("rates", ["rates" => $json_obj_rates]);
 
-            if($totalCount > 0 ){
+            if ($totalCount > 0 ) {
                 $rates_obj =  $json_obj_rates->{'results'};
+
                 foreach ($rates_obj as $rate) {
                     if (is_object($rate)) {
-                        // Add shipping option with shipping price
                         $method = $this->_rateMethodFactory->create();
                         $method->setCarrier($this->getCarrierCode());
                         $method->setCarrierTitle($rate->{'provider'});
