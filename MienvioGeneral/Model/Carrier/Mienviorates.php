@@ -113,8 +113,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                $length = $product->getData('ts_dimensions_length');
                $width = $product->getData('ts_dimensions_width');
                $height = $product->getData('ts_dimensions_height');
+               $weight = $product->getData('weight');
 
-               $this->_logger->debug('product', ['name' => $productName, '$length' => $length, '$width' => $width, '$height' => $height]);
+               $this->_logger->debug('product', ['name' => $productName, '$length' => $length, '$width' => $width, '$height' => $height, '$weight' => $weight]);
             }
 
             foreach($items as $item){
