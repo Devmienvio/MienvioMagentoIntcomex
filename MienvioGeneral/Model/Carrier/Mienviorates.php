@@ -112,8 +112,13 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 '$height' => $height, '$weight' => $weight, '$volWeight' => $volWeight]);
             }
 
-            $maxWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
-            $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $maxWeight]);
+            $orderVolWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
+
+
+            $usedPackage = $this->calculateNeededPackage($orderVolWeight, $weight, $packages);
+
+            $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $orderVolWeight, 'package' => $usedPackage]);
+
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
 
             try {
@@ -239,5 +244,33 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     private function convertInchesToCms($inches)
     {
         return $inches * 2.54;
+    }
+
+    /**
+     * Calculates needed package size for order items
+     *
+     * @param  float $orderVolWeight
+     * @param  array $packages
+     * @return array
+     */
+    private function calculateNeededPackage($orderVolWeight, $packages)
+    {
+        $choosenPackVolWeight = 10000;
+        $choosenPackage = null;
+
+        foreach ($packages as $package) {
+            $packageVolWeight = $this->calculateVolumetricWeight(
+                $package->{'length'}, $package->{'width'}, $package->{'height'}
+            );
+
+            if ($packageVolWeight < $choosenPackVolWeight && $packageVolWeight >= $orderVolWeight) {
+                $choosenPackVolWeight = $packageVolWeight;
+                $choosenPackage = $package;
+            }
+        }
+
+        return [
+            'package' => $choosenPackage
+        ];
     }
 }
