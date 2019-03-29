@@ -66,7 +66,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         }
 
         try {
-            /* Address Logic */
             $destCountryId = $request->getDestCountryId();
             $destCountry = $request->getDestCountry();
             $destRegion = $request->getDestRegionId();
@@ -76,7 +75,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $destSuburb = "";
             $destCity = $request->getDestCity();
             $destPostcode = $request->getDestPostcode();
-            $fromZipCode = $request->getPostcode();
 
             if ($destFullStreet != null && $destFullStreet != "") {
                 $destFullStreetArray = explode("\n", $destFullStreet);
@@ -89,59 +87,48 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 }
             }
 
-            /* Get-measures logic */
             $packageValue = $request->getPackageValue();
             $packageWeight = $request->getPackageWeight();
+            $fromZipCode = $request->getPostcode();
             $realWeight = $this->convertWeight($packageWeight);
 
-            $orderVolWeight = 0;
-            $chosenPackage = [
-                'length' => 0,
-                'width' => 0,
-                'height' => 0
-            ];
+            $items = $request->getAllItems();
+            $packageVolWeight = 0;
 
-            $lengthSum = 0;
-            $widthSum = 0;
-            $heightSum = 0;
-
-            /* Calculate volumetric weight of each item */
-            foreach ($request->getAllItems() as $item) {
+            foreach ($items as $item) {
                 $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
                 $productName = $item->getName();
                 $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
-
                 $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
                 $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
                 $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
-
-                $chosenPackage['length'] += $length;
-                $chosenPackage['width']  += $width;
-                $chosenPackage['height'] += $height;
-
+                $weight = $product->getData('weight');
                 $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
-                $orderVolWeight += $volWeight;
+                $packageVolWeight += $volWeight;
 
-                $this->_logger->debug('product info',
+                $this->_logger->debug('product',
                 ['id' => $item->getId(), 'name' => $productName,
                 '$length' => $length, '$width' => $width,
-                '$height' => $height, '$volWeight' => $volWeight]);
+                '$height' => $height, '$weight' => $weight, '$volWeight' => $volWeight]);
             }
 
-            $orderWeight = $orderVolWeight > $realWeight ? $orderVolWeight : $realWeight;
+            $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $packages = [];
 
             try {
                 $packages = $this->getAvailablePackages($baseUrl, $options);
-                $chosenPackage = $this->calculateNeededPackage($orderVolWeight, $packages);
             } catch (\Exception $e) {
-                $this->_logger->debug('Error when getting needed package', ['e' => $e]);
+                $this->_logger->debug('Error', []);
             }
 
-            $this->_logger->debug('product', ['$volWeight' => $orderVolWeight, '$maxWeight' => $orderWeight, 'package' => $chosenPackage]);
+            $chosenPackage = $this->calculateNeededPackage($orderWeight, $packages);
 
+            $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $orderWeight, 'package' => $chosenPackage]);
+
+
+            // TODO: Change api url to production
             // Call Api to create rutes
             $url = $baseUrl . 'api/shipments';
             $post_data = '{
@@ -151,27 +138,22 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                  "weight": ' . $orderWeight . ',
                  "declared_value": ' . $packageValue .',
                  "source_type" : "api",
-                 "length" :' . $chosenPackage['length'] . ',
-                 "width": '  . $chosenPackage['width']  . ',
-                 "height": ' . $chosenPackage['height'] . '
+                 "length" :' . $chosenPackage->{'length'} . ',
+                 "width": ' . $chosenPackage->{'width'} . ',
+                 "height": ' . $chosenPackage->{'height'} . '
             }';
 
             $this->_logger->debug("postdata", ["postdata" => $post_data]);
 
-
-            /* Create quote-shipment logic */
             $this->_curl->setOptions($options);
             $this->_curl->post($url, $post_data);
             $response = $this->_curl->getBody();
             $json_obj = json_decode($response);
-
-            /* Get quotes */
-            $shipmentId = $json_obj->{'shipment'}->{'object_id'};
-            $this->_curl->get($url . '/'.$shipmentId. '/rates?limit=1000000');
+            $obj_id = $json_obj->{'shipment'}->{'object_id'};
+            $this->_curl->get($url . '/'.$obj_id. '/rates?limit=1000000');
             $responseRates = $this->_curl->getBody();
             $json_obj_rates = json_decode($responseRates);
             $totalCount = $json_obj_rates->{'total_count'};
-
             $this->_logger->debug("rates", ["rates" => $json_obj_rates]);
 
             if ($totalCount > 0 ) {
@@ -194,7 +176,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $this->_logger->debug("Rates Exception");
             $this->_logger->debug($e);
         }
-
         return $result;
     }
 
@@ -208,7 +189,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     private function calculateVolumetricWeight($length, $width, $height)
     {
-		return round(((1 * $length * $width * $height) / 5000), 4);
+        $volumetricWeight = round(((1 * $length * $width * $height) / 5000), 4);
+
+		return $volumetricWeight;
     }
 
     /**
@@ -226,7 +209,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $json_obj = json_decode($response);
         $packages = $json_obj->{'results'};
 
-        $this->_logger->debug("user packages", ["packages" => $packages]);
+        $this->_logger->debug("packages", ["packages" => $packages]);
 
         return $packages;
     }
@@ -241,7 +224,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     {
         $storeWeightUnit = $this->directoryHelper->getWeightUnit();
         $weight = 0;
-
         switch ($storeWeightUnit) {
             case 'lbs':
                 $weight = $_weigth * $this->lbs_kg;
@@ -268,12 +250,14 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     /**
      * Calculates needed package size for order items
      *
-     * @param  float $orderVolWeight
+     * @param  float $orderWeight
      * @param  array $packages
      * @return array
      */
-    private function calculateNeededPackage($orderVolWeight, $packages)
+    private function calculateNeededPackage($orderWeight, $packages)
     {
+        $this->_logger->debug("calculateNeededPackage", ["packages" => $packages]);
+
         $choosenPackVolWeight = 10000;
         $choosenPackage = null;
 
@@ -282,12 +266,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $package->{'length'}, $package->{'width'}, $package->{'height'}
             );
 
-            if ($packageVolWeight < $choosenPackVolWeight && $packageVolWeight >= $orderVolWeight) {
+            if ($packageVolWeight < $choosenPackVolWeight && $packageVolWeight >= $orderWeight) {
                 $choosenPackVolWeight = $packageVolWeight;
                 $choosenPackage = $package;
             }
         }
 
-        return (array)$choosenPackage;
+        return $choosenPackage;
     }
 }
