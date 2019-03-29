@@ -179,7 +179,7 @@ class ObserverSuccess implements ObserverInterface
                 "length" :' . $orderLength  . ',
                 "width": ' . $orderWidth . ',
                 "height": ' . $orderHeight . ',
-                "rate" :' . $shipping_id . ' ,
+                "rate" :' . $shipping_id . ',
                 "order" : {
                     "marketplace" : "magento",
                     "object_id" : ' . $orderData['quote_id'] . '
