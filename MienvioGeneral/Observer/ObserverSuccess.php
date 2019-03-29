@@ -118,7 +118,7 @@ class ObserverSuccess implements ObserverInterface
             $this->_logger->info("responses", ["to" => $toAddress,"from" => $fromAddress]);
 
             /* Measures */
-            $realWeight = $this->convertWeight($packageWeight);
+            $realWeight = $this->convertWeight($order->getPackageWeight());
             $items = $order->getAllItems();
             $packageVolWeight = 0;
 
@@ -178,7 +178,11 @@ class ObserverSuccess implements ObserverInterface
                 "length" :' . $orderLength  . ',
                 "width": ' . $orderWidth . ',
                 "height": ' . $orderHeight . '
-                "rate" :' . $shipping_id . '
+                "rate" :' . $shipping_id . ' ,
+                "order: {
+                    "marketplace" : "magento",
+                    "object_id" : ' . $orderId . '
+                }"
             }';
 
             $this->_logger->info('orderObject', ["data" => $postData]);
