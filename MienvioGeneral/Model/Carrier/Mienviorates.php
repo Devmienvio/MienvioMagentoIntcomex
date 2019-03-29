@@ -310,6 +310,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
         if (is_null($chosenPackage)) {
             // then use bigger package
+            $chosenPackage = $biggerPackage;
             $sizeRatio = $packageVolWeight/$biggerPackageVolWeight;
             $qty = ceil($sizeRatio);
         }
