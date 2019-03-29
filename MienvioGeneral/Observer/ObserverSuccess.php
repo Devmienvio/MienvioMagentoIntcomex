@@ -46,7 +46,7 @@ class ObserverSuccess implements ObserverInterface
             $order = $observer->getEvent()->getOrder();
             $Carriers = $shipping_id;
             $order->setMienvioCarriers($Carriers);
-            $orderId = $order->getId();
+            $orderId = $this->getOrderId();
             $apiKey = $this->_mienvioHelper->getMienvioApi();
             $orderData = $order->getData();
 
@@ -119,7 +119,7 @@ class ObserverSuccess implements ObserverInterface
             $this->_logger->info("responses", ["to" => $toAddress,"from" => $fromAddress]);
 
             /* Measures */
-            $realWeight = 0;
+            $realWeight = $this->convertWeight($orderData['weight']);
             $items = $order->getAllItems();
             $packageVolWeight = 0;
 
@@ -140,7 +140,6 @@ class ObserverSuccess implements ObserverInterface
                 $orderLength += $length;
                 $orderWidth  += $width;
                 $orderHeight += $height;
-                $realWeight += $weight;
 
                 $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
                 $packageVolWeight += $volWeight;
@@ -151,7 +150,6 @@ class ObserverSuccess implements ObserverInterface
                 '$height' => $height, '$weight' => $weight, '$volWeight' => $volWeight]);
             }
 
-            $realWeight = $this->convertWeight($realWeight);
             $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
