@@ -180,10 +180,10 @@ class ObserverSuccess implements ObserverInterface
                 "width": ' . $orderWidth . ',
                 "height": ' . $orderHeight . '
                 "rate" :' . $shipping_id . ' ,
-                "order: {
+                "order" : {
                     "marketplace" : "magento",
                     "object_id" : ' . $orderData['quote_id'] . '
-                }"
+                }
             }';
 
             $this->_logger->info('orderObject', ["data" => $postData]);
