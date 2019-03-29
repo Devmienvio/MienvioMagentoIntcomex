@@ -66,6 +66,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         }
 
         try {
+            /* Location data */
             $destCountryId = $request->getDestCountryId();
             $destCountry = $request->getDestCountry();
             $destRegion = $request->getDestRegionId();
@@ -74,6 +75,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $destStreet = "";
             $destSuburb = "";
             $destCity = $request->getDestCity();
+
             $destPostcode = $request->getDestPostcode();
 
             if ($destFullStreet != null && $destFullStreet != "") {
@@ -98,10 +100,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $orderLength = 0;
             $orderWidth = 0;
             $orderHeight = 0;
+            $orderDescription = '';
 
             foreach ($items as $item) {
                 $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
                 $productName = $item->getName();
+                $orderDescription .= $productName . ' ';
                 $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
 
                 $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
@@ -123,6 +127,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             }
 
             $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
+            $orderDescription = substr($orderDescription, 0, 30);
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
 
@@ -137,7 +142,13 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $this->_logger->debug('Error when getting needed package', ['e' => $e]);
             }
 
-            $this->_logger->debug('product', ['$realWeight' => $realWeight,'$volWeight' => $packageVolWeight, '$maxWeight' => $orderWeight, 'package' => $chosenPackage]);
+            $this->_logger->debug('order info', [
+                '$realWeight' => $realWeight,
+                '$volWeight' => $packageVolWeight,
+                '$maxWeight' => $orderWeight,
+                'package' => $chosenPackage,
+                'description' => $orderDescription
+            ]);
 
             // Call Api to create rutes
             $url = $baseUrl . 'api/shipments';
