@@ -272,8 +272,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             }
         }
 
-        return [
-            'package' => $choosenPackage
-        ];
+        return $choosenPackage;
     }
 }
