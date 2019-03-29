@@ -178,7 +178,7 @@ class ObserverSuccess implements ObserverInterface
                 "source_type": "api",
                 "length" :' . $orderLength  . ',
                 "width": ' . $orderWidth . ',
-                "height": ' . $orderHeight . '
+                "height": ' . $orderHeight . ',
                 "rate" :' . $shipping_id . ' ,
                 "order" : {
                     "marketplace" : "magento",
