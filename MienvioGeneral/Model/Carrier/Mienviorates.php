@@ -112,7 +112,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 '$height' => $height, '$weight' => $weight, '$volWeight' => $volWeight]);
             }
 
-            $orderVolWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
+            $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $packages = [];
@@ -123,9 +123,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $this->_logger->debug('Error', []);
             }
 
-            $usedPackage = $this->calculateNeededPackage($orderVolWeight, $packages);
+            $usedPackage = $this->calculateNeededPackage($orderWeight, $packages);
 
-            $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $orderVolWeight, 'package' => $usedPackage]);
+            $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $orderWeight, 'package' => $usedPackage]);
 
 
             // TODO: Change api url to production
@@ -135,7 +135,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                  "object_purpose": "QUOTE",
                  "zipcode_from": ' . $fromZipCode . ',
                  "zipcode_to": ' . $destPostcode . ',
-                 "weight": ' . $maxWeight . ',
+                 "weight": ' . $orderWeight . ',
                  "declared_value": ' . $packageValue .',
                  "source_type" : "api",
                  "length" : 10,
@@ -250,11 +250,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     /**
      * Calculates needed package size for order items
      *
-     * @param  float $orderVolWeight
+     * @param  float $orderWeight
      * @param  array $packages
      * @return array
      */
-    private function calculateNeededPackage($orderVolWeight, $packages)
+    private function calculateNeededPackage($orderWeight, $packages)
     {
         $this->_logger->debug("calculateNeededPackage", ["packages" => $packages]);
 
@@ -266,7 +266,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $package->{'length'}, $package->{'width'}, $package->{'height'}
             );
 
-            if ($packageVolWeight < $choosenPackVolWeight && $packageVolWeight >= $orderVolWeight) {
+            if ($packageVolWeight < $choosenPackVolWeight && $packageVolWeight >= $orderWeight) {
                 $choosenPackVolWeight = $packageVolWeight;
                 $choosenPackage = $package;
             }
