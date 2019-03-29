@@ -182,7 +182,7 @@ class ObserverSuccess implements ObserverInterface
                 "rate" :' . $shipping_id . ',
                 "order" : {
                     "marketplace" : "magento",
-                    "object_id" : ' . (string)$orderData['quote_id'] . '
+                    "object_id" : ' . strval($orderData['quote_id']) . '
                 }
             }';
 
