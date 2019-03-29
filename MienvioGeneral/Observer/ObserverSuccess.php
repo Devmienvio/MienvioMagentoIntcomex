@@ -125,10 +125,12 @@ class ObserverSuccess implements ObserverInterface
             $orderLength = 0;
             $orderWidth = 0;
             $orderHeight = 0;
+            $orderDescription = '';
 
             foreach ($items as $item) {
                 $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
                 $productName = $item->getName();
+                $orderDescription .= $productName . ' ';
                 $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
 
                 $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
@@ -172,7 +174,7 @@ class ObserverSuccess implements ObserverInterface
                 "address_from": ' . $fromAddress . ',
                 "address_to": ' . $toAddress . ',
                 "weight": ' . $orderWeight . ',
-                "description": "Articulos varios",
+                "description" : "' . $orderDescription .'",
                 "declared_value": ' . $orderData['subtotal_incl_tax'] .',
                 "source_type": "api",
                 "length" :' . $orderLength  . ',
