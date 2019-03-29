@@ -77,19 +77,22 @@ class ObserverSuccess implements ObserverInterface
             $addressUrl = $baseUrl . 'api/addresses';
             $fromData = '{
                 "object_type": "PURCHASE",
-                "name": "'.$customerName.'",
-                "street": "'.$this->_mienvioHelper->getOriginStreet().'",
-                "street2": "'.$this->_mienvioHelper->getOriginStreet2().'",
-                "zipcode": '.$this->_mienvioHelper->getOriginZipCode().',
-                "email": "'.$customermail.'",
-                "phone": "'.$customerPhone.'",
+                "name": "'. $customerName . '",
+                "street": "'. $this->_mienvioHelper->getOriginStreet() . '",
+                "street2": "'. $this->_mienvioHelper->getOriginStreet2() . '",
+                "zipcode": '. $this->_mienvioHelper->getOriginZipCode() . ',
+                "email": "'. $customermail .'",
+                "phone": "'. $customerPhone .'",
                 "reference": ""
                 }';
+
+            $toStreet2 = empty($shippingAddress->getStreetLine(2)) ? $shippingAddress->getStreetLine(1) : $shippingAddress->getStreetLine(2);
+
             $toData = '{
                 "object_type": "PURCHASE",
                 "name": "'.$customerName.'",
                 "street": "'. $shippingAddress->getStreetLine(1).'",
-                "street2":  "'. $shippingAddress->getStreetLine(2).'",
+                "street2":  "'. $toStreet2 .'",
                 "zipcode": '.$shippingAddress->getPostcode().',
                 "email": "'.$customermail.'",
                 "phone": "'.$customerPhone.'",
