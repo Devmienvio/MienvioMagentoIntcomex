@@ -127,8 +127,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 '$height' => $height, '$weight' => $weight, '$volWeight' => $volWeight]);
             }
 
-            $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
-            $orderWeight = ceil($orderWeight);
+            $packageVolWeight = ceil($packageVolWeight);
+            $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;            
             $orderDescription = substr($orderDescription, 0, 30);
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
