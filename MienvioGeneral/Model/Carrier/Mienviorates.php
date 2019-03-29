@@ -158,6 +158,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                  "zipcode_to": ' . $destPostcode . ',
                  "weight": ' . $orderWeight . ',
                  "declared_value": ' . $packageValue .',
+                 "description" : ' . $orderDescription .',
                  "source_type" : "api",
                  "length" :' . $orderLength  . ',
                  "width": ' . $orderWidth . ',
