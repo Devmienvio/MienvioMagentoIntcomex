@@ -107,7 +107,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
                 $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
                 $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
-                $weight = $product->getData('weight');
+                $weight = $this->convertWeight($product->getData('weight'));
 
                 $orderLength += $length;
                 $orderWidth  += $width;
@@ -134,7 +134,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $orderWidth = $chosenPackage->{'width'};
                 $orderHeight = $chosenPackage->{'height'};
             } catch (\Exception $e) {
-                $this->_logger->debug('Error', []);
+                $this->_logger->debug('Error when getting needed package', ['e' => $e]);
             }
 
             $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $orderWeight, 'package' => $chosenPackage]);
@@ -266,8 +266,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     private function calculateNeededPackage($orderWeight, $packages)
     {
-        $this->_logger->debug("calculateNeededPackage", ["packages" => $packages]);
-
         $choosenPackVolWeight = 10000;
         $choosenPackage = null;
 
