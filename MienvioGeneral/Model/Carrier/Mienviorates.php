@@ -159,8 +159,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $this->_curl->post($url, $post_data);
             $response = $this->_curl->getBody();
             $json_obj = json_decode($response);
-            $obj_id = $json_obj->{'shipment'}->{'object_id'};
-            $this->_curl->get($url . '/'.$obj_id. '/rates?limit=1000000');
+            $shipmentId = $json_obj->{'shipment'}->{'object_id'};
+            $this->_curl->get($url . '/'.$shipmentId. '/rates?limit=1000000');
             $responseRates = $this->_curl->getBody();
             $json_obj_rates = json_decode($responseRates);
             $totalCount = $json_obj_rates->{'total_count'};
@@ -171,10 +171,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
                 foreach ($rates_obj as $rate) {
                     if (is_object($rate)) {
+                        $methodId = $shipmentId . '_' . $rate->{'object_id'};
+
                         $method = $this->_rateMethodFactory->create();
                         $method->setCarrier($this->getCarrierCode());
                         $method->setCarrierTitle($rate->{'provider'});
-                        $method->setMethod($rate->{'object_id'});
+                        $method->setMethod($methodId);
                         $method->setMethodTitle($rate->{'servicelevel'});
                         $method->setPrice($rate->{'amount'});
                         $method->setCost($rate->{'amount'});
