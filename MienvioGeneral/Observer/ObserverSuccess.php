@@ -78,14 +78,13 @@ class ObserverSuccess implements ObserverInterface
             $addressUrl = $baseUrl . 'api/addresses';
 
             $fromData = $this->createAddressDataStr(
-                $customerName,
+                "MIENVIO DE MEXICO",
                 $this->_mienvioHelper->getOriginStreet(),
                 $this->_mienvioHelper->getOriginStreet2(),
                 $this->_mienvioHelper->getOriginZipCode(),
-                $customermail,
-                $customerPhone
+                "ventas@mienvio.mx",
+                "5551814040"
             );
-
 
             $toStreet2 = empty($shippingAddress->getStreetLine(2)) ? $shippingAddress->getStreetLine(1) : $shippingAddress->getStreetLine(2);
 
