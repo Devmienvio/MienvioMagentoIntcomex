@@ -243,6 +243,8 @@ class ObserverSuccess implements ObserverInterface
      */
     private function convertWeight($_weigth)
     {
+        return ceil($_weigth * 0.45359237);
+
         $storeWeightUnit = $this->directoryHelper->getWeightUnit();
         $weight = 0;
         switch ($storeWeightUnit) {
