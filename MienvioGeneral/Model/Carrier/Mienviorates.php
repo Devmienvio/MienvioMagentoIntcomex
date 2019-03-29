@@ -171,6 +171,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $this->_curl->post($url, $post_data);
             $response = $this->_curl->getBody();
             $json_obj = json_decode($response);
+
+            $this->_logger->debug("response", ["data" => $json_obj]);
+
             $shipmentId = $json_obj->{'shipment'}->{'object_id'};
             $this->_curl->get($url . '/'.$shipmentId. '/rates?limit=1000000');
             $responseRates = $this->_curl->getBody();
