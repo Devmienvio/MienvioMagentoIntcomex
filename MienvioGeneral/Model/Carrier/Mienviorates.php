@@ -128,7 +128,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             }
 
             $packageVolWeight = ceil($packageVolWeight);
-            $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;            
+            $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
             $orderDescription = substr($orderDescription, 0, 30);
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
@@ -281,11 +281,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      * Calculates needed package size for order items
      *
      * @param  float $orderWeight
-     * @param  float $packageVolWeight
+     * @param  float $orderVolWeight
      * @param  array $packages
      * @return array
      */
-    private function calculateNeededPackage($orderWeight, $packageVolWeight, $packages)
+    private function calculateNeededPackage($orderWeight, $orderVolWeight, $packages)
     {
         $chosenPackVolWeight = 10000;
         $chosenPackage = null;
@@ -303,7 +303,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $biggerPackage = $package;
             }
 
-            if ($packageVolWeight < $chosenPackVolWeight && $packageVolWeight >= $orderWeight) {
+            if ($packageVolWeight < $chosenPackVolWeight && $packageVolWeight >= $orderVolWeight) {
                 $chosenPackVolWeight = $packageVolWeight;
                 $chosenPackage = $package;
             }
@@ -312,7 +312,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         if (is_null($chosenPackage)) {
             // then use bigger package
             $chosenPackage = $biggerPackage;
-            $sizeRatio = $packageVolWeight/$biggerPackageVolWeight;
+            $sizeRatio = $orderVolWeight/$biggerPackageVolWeight;
             $qty = ceil($sizeRatio);
         }
 
