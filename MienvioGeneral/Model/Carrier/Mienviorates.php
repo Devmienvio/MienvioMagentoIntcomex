@@ -114,18 +114,19 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             $orderVolWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
 
-
-            $usedPackage = $this->calculateNeededPackage($orderVolWeight, $weight, $packages);
-
-            $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $orderVolWeight, 'package' => $usedPackage]);
-
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
+            $packages = [];
 
             try {
                 $packages = $this->getAvailablePackages($baseUrl, $options);
             } catch (\Exception $e) {
                 $this->_logger->debug('Error', []);
             }
+
+            $usedPackage = $this->calculateNeededPackage($orderVolWeight, $weight, $packages);
+
+            $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $orderVolWeight, 'package' => $usedPackage]);
+
 
             // TODO: Change api url to production
             // Call Api to create rutes
