@@ -57,7 +57,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         }
 
         $result = $this->_rateResultFactory->create();
-        return $result;
 
         $apiKey = $this->_mienvioHelper->getMienvioApi();
         $apiSource = $this->getConfigData('apikey');
