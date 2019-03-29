@@ -101,6 +101,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $orderWidth = 0;
             $orderHeight = 0;
             $orderDescription = '';
+            $numberOfPackages = 1;
 
             foreach ($items as $item) {
                 $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
@@ -133,7 +134,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             try {
                 $packages = $this->getAvailablePackages($baseUrl, $options);
-                $chosenPackage = $this->calculateNeededPackage($orderWeight, $packages);
+                $packageCalculus = $this->calculateNeededPackage($orderWeight, $packageVolWeight, $packages);
+                $chosenPackage = $packageCalculus['package'];
+                $numberOfPackages = $packageCalculus['qty'];
 
                 $orderLength = $chosenPackage->{'length'};
                 $orderWidth = $chosenPackage->{'width'};
@@ -147,7 +150,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 '$volWeight' => $packageVolWeight,
                 '$maxWeight' => $orderWeight,
                 'package' => $chosenPackage,
-                'description' => $orderDescription
+                'description' => $orderDescription,
+                '$numberOfPackages' => $numberOfPackages
             ]);
 
             // Call Api to create rutes
@@ -191,8 +195,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                         $method->setCarrierTitle($rate->{'provider'});
                         $method->setMethod($rate->{'object_id'});
                         $method->setMethodTitle($rate->{'servicelevel'});
-                        $method->setPrice($rate->{'amount'});
-                        $method->setCost($rate->{'amount'});
+                        $method->setPrice($rate->{'amount'} * $numberOfPackages);
+                        $method->setCost($rate->{'amount'} * $numberOfPackages);
                         $result->append($method);
                     }
                 }
@@ -276,18 +280,27 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      * Calculates needed package size for order items
      *
      * @param  float $orderWeight
+     * @param  float $packageVolWeight
      * @param  array $packages
      * @return array
      */
-    private function calculateNeededPackage($orderWeight, $packages)
+    private function calculateNeededPackage($orderWeight, $packageVolWeight, $packages)
     {
         $choosenPackVolWeight = 10000;
         $choosenPackage = null;
+        $biggerPackage = null;
+        $biggerPackageVolWeight = 0;
+        $qty = 1;
 
         foreach ($packages as $package) {
             $packageVolWeight = $this->calculateVolumetricWeight(
                 $package->{'length'}, $package->{'width'}, $package->{'height'}
             );
+
+            if ($packageVolWeight > $biggerPackageVolWeight) {
+                $biggerPackageVolWeight = $packageVolWeight;
+                $biggerPackage = $package;
+            }
 
             if ($packageVolWeight < $choosenPackVolWeight && $packageVolWeight >= $orderWeight) {
                 $choosenPackVolWeight = $packageVolWeight;
@@ -295,6 +308,15 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             }
         }
 
-        return $choosenPackage;
+        if (is_null($chosenPackage)) {
+            // then use bigger package
+            $sizeRatio = $packageVolWeight/$biggerPackageVolWeight;
+            $qty = ceil($sizeRatio);
+        }
+
+        return [
+            'package' => $choosenPackage,
+            'qty' => $qty
+        ];
     }
 }
