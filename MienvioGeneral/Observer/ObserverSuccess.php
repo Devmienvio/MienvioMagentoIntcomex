@@ -192,7 +192,7 @@ class ObserverSuccess implements ObserverInterface
                 "width": ' . $orderWidth . ',
                 "height": ' . $orderHeight . ',
                 "rate" :' . $shipping_id . ',
-                "quantity" :' . $numberOfPackages . '",
+                "quantity" :' . $numberOfPackages . ',
                 "order" : {
                     "marketplace" : "magento",
                     "object_id" : "' . $orderData['quote_id'] . '"
@@ -345,6 +345,8 @@ class ObserverSuccess implements ObserverInterface
     {
         $street = substr($street, 0, 35);
         $street2 = substr($street2, 0, 35);
+        $name = substr($name, 0, 80);
+        $phone = substr($phone, 0, 20);
 
         return '{
             "object_type": "PURCHASE",
