@@ -126,6 +126,7 @@ class ObserverSuccess implements ObserverInterface
             $orderWidth = 0;
             $orderHeight = 0;
             $orderDescription = '';
+            $numberOfPackages = 1;
 
             foreach ($items as $item) {
                 $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
@@ -151,6 +152,7 @@ class ObserverSuccess implements ObserverInterface
                 '$height' => $height, '$weight' => $weight, '$volWeight' => $volWeight]);
             }
 
+            $packageVolWeight = ceil($packageVolWeight);
             $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
             $orderDescription = substr($orderDescription, 0, 30);
 
@@ -158,7 +160,9 @@ class ObserverSuccess implements ObserverInterface
 
             try {
                 $packages = $this->getAvailablePackages($baseUrl, $options);
-                $chosenPackage = $this->calculateNeededPackage($orderWeight, $packages);
+                $packageCalculus = $this->calculateNeededPackage($orderWeight, $packageVolWeight, $packages);
+                $chosenPackage = $packageCalculus['package'];
+                $numberOfPackages = $packageCalculus['qty'];
 
                 $orderLength = $chosenPackage->{'length'};
                 $orderWidth = $chosenPackage->{'width'};
@@ -167,21 +171,28 @@ class ObserverSuccess implements ObserverInterface
                 $this->_logger->debug('Error when getting needed package', ['e' => $e]);
             }
 
-            $this->_logger->debug('product', ['$realWeight' => $realWeight,'$volWeight' => $packageVolWeight, '$maxWeight' => $orderWeight, 'package' => $chosenPackage]);
-
+            $this->_logger->debug('order info', [
+                '$realWeight' => $realWeight,
+                '$volWeight' => $packageVolWeight,
+                '$maxWeight' => $orderWeight,
+                'package' => $chosenPackage,
+                'description' => $orderDescription,
+                '$numberOfPackages' => $numberOfPackages
+            ]);
 
             $postData = '{
                 "object_purpose": "PURCHASE",
                 "address_from": ' . $fromAddress . ',
                 "address_to": ' . $toAddress . ',
                 "weight": ' . $orderWeight . ',
-                "description" : "' . $orderDescription .'",
                 "declared_value": ' . $orderData['subtotal_incl_tax'] .',
+                "description" : "' . $orderDescription .'",
                 "source_type": "api",
                 "length" :' . $orderLength  . ',
                 "width": ' . $orderWidth . ',
                 "height": ' . $orderHeight . ',
                 "rate" :' . $shipping_id . ',
+                "quantity : ' . $numberOfPackages . '",
                 "order" : {
                     "marketplace" : "magento",
                     "object_id" : "' . $orderData['quote_id'] . '"
@@ -277,26 +288,45 @@ class ObserverSuccess implements ObserverInterface
      * Calculates needed package size for order items
      *
      * @param  float $orderWeight
+     * @param  float $orderVolWeight
      * @param  array $packages
      * @return array
      */
-    private function calculateNeededPackage($orderWeight, $packages)
+    private function calculateNeededPackage($orderWeight, $orderVolWeight, $packages)
     {
-        $choosenPackVolWeight = 10000;
-        $choosenPackage = null;
+        $chosenPackVolWeight = 10000;
+        $chosenPackage = null;
+        $biggerPackage = null;
+        $biggerPackageVolWeight = 0;
+        $qty = 1;
 
         foreach ($packages as $package) {
             $packageVolWeight = $this->calculateVolumetricWeight(
                 $package->{'length'}, $package->{'width'}, $package->{'height'}
             );
 
-            if ($packageVolWeight < $choosenPackVolWeight && $packageVolWeight >= $orderWeight) {
-                $choosenPackVolWeight = $packageVolWeight;
-                $choosenPackage = $package;
+            if ($packageVolWeight > $biggerPackageVolWeight) {
+                $biggerPackageVolWeight = $packageVolWeight;
+                $biggerPackage = $package;
+            }
+
+            if ($packageVolWeight < $chosenPackVolWeight && $packageVolWeight >= $orderVolWeight) {
+                $chosenPackVolWeight = $packageVolWeight;
+                $chosenPackage = $package;
             }
         }
 
-        return $choosenPackage;
+        if (is_null($chosenPackage)) {
+            // then use bigger package
+            $chosenPackage = $biggerPackage;
+            $sizeRatio = $orderVolWeight/$biggerPackageVolWeight;
+            $qty = ceil($sizeRatio);
+        }
+
+        return [
+            'package' => $chosenPackage,
+            'qty' => $qty
+        ];
     }
 
     /**
