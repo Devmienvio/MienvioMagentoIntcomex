@@ -171,12 +171,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
                 foreach ($rates_obj as $rate) {
                     if (is_object($rate)) {
-                        $methodId = $shipmentId . '_' . $rate->{'object_id'};
-
                         $method = $this->_rateMethodFactory->create();
-                        $method->setCarrier($this->getCarrierCode());
+                        //$method->setCarrier($this->getCarrierCode());
+                        $method->setCarrier('prueba_123');
                         $method->setCarrierTitle($rate->{'provider'});
-                        $method->setMethod($methodId);
+                        $method->setMethod($rate->{'object_id'});
                         $method->setMethodTitle($rate->{'servicelevel'});
                         $method->setPrice($rate->{'amount'});
                         $method->setCost($rate->{'amount'});
