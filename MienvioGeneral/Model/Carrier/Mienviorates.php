@@ -137,7 +137,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $this->_logger->debug('Error when getting needed package', ['e' => $e]);
             }
 
-            $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $orderWeight, 'package' => $chosenPackage]);
+            $this->_logger->debug('product', ['$realWeight' => $realWeight,'$volWeight' => $packageVolWeight, '$maxWeight' => $orderWeight, 'package' => $chosenPackage]);
 
             // Call Api to create rutes
             $url = $baseUrl . 'api/shipments';
