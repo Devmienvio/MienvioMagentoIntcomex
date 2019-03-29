@@ -296,12 +296,24 @@ class ObserverSuccess implements ObserverInterface
         return $choosenPackage;
     }
 
+    /**
+     * Creates an string with the address data
+     *
+     * @param  string $name
+     * @param  string $street
+     * @param  string $street2
+     * @param  string $zipcode
+     * @param  string $email
+     * @param  string $phone
+     * @param  string $reference
+     * @return string
+     */
     private function createAddressDataStr($name, $street, $street2, $zipcode, $email, $phone, $reference = '.')
     {
         $street = substr($street, 0, 35);
         $street2 = substr($street2, 0, 35);
 
-        $data = '{
+        return '{
             "object_type": "PURCHASE",
             "name": "'. $name . '",
             "street": "'. $street . '",
