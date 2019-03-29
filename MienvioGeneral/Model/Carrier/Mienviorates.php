@@ -95,14 +95,24 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $items = $request->getAllItems();
             $packageVolWeight = 0;
 
+            $orderLength = 0;
+            $orderWidth = 0;
+            $orderHeight = 0;
+
             foreach ($items as $item) {
                 $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
                 $productName = $item->getName();
                 $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
+
                 $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
                 $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
                 $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
                 $weight = $product->getData('weight');
+
+                $orderLength += $length;
+                $orderWidth  += $width;
+                $orderHeight += $height;
+
                 $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
                 $packageVolWeight += $volWeight;
 
@@ -115,20 +125,20 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
-            $packages = [];
 
             try {
                 $packages = $this->getAvailablePackages($baseUrl, $options);
+                $chosenPackage = $this->calculateNeededPackage($orderWeight, $packages);
+
+                $orderLength = $chosenPackage->{'length'};
+                $orderWidth = $chosenPackage->{'width'};
+                $orderHeight = $chosenPackage->{'height'};
             } catch (\Exception $e) {
                 $this->_logger->debug('Error', []);
             }
 
-            $chosenPackage = $this->calculateNeededPackage($orderWeight, $packages);
-
             $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $orderWeight, 'package' => $chosenPackage]);
 
-
-            // TODO: Change api url to production
             // Call Api to create rutes
             $url = $baseUrl . 'api/shipments';
             $post_data = '{
@@ -138,9 +148,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                  "weight": ' . $orderWeight . ',
                  "declared_value": ' . $packageValue .',
                  "source_type" : "api",
-                 "length" :' . $chosenPackage->{'length'} . ',
-                 "width": ' . $chosenPackage->{'width'} . ',
-                 "height": ' . $chosenPackage->{'height'} . '
+                 "length" :' . $orderLength  . ',
+                 "width": ' . $orderWidth . ',
+                 "height": ' . $orderHeight . '
             }';
 
             $this->_logger->debug("postdata", ["postdata" => $post_data]);
