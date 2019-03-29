@@ -173,7 +173,7 @@ class ObserverSuccess implements ObserverInterface
                 "address_from": ' . $fromAddress . ',
                 "address_to": ' . $toAddress . ',
                 "weight": ' . $orderWeight . ',
-                "description": Articulos varios,
+                "description": "Articulos varios",
                 "declared_value": ' . $orderData['subtotal_incl_tax'] .',
                 "source_type": "api",
                 "length" :' . $orderLength  . ',
@@ -182,7 +182,7 @@ class ObserverSuccess implements ObserverInterface
                 "rate" :' . $shipping_id . ',
                 "order" : {
                     "marketplace" : "magento",
-                    "object_id" : ' . $orderData['quote_id'] . '
+                    "object_id" : ' . (string)$orderData['quote_id'] . '
                 }
             }';
 
