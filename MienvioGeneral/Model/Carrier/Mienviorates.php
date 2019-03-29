@@ -256,6 +256,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     private function calculateNeededPackage($orderVolWeight, $packages)
     {
+        $this->_logger->debug("calculateNeededPackage", ["packages" => $packages]);
+
         $choosenPackVolWeight = 10000;
         $choosenPackage = null;
 
