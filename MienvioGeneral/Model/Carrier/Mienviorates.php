@@ -123,9 +123,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $this->_logger->debug('Error', []);
             }
 
-            $usedPackage = $this->calculateNeededPackage($orderWeight, $packages);
+            $chosenPackage = $this->calculateNeededPackage($orderWeight, $packages);
 
-            $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $orderWeight, 'package' => $usedPackage]);
+            $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $orderWeight, 'package' => $chosenPackage]);
 
 
             // TODO: Change api url to production
@@ -138,9 +138,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                  "weight": ' . $orderWeight . ',
                  "declared_value": ' . $packageValue .',
                  "source_type" : "api",
-                 "length" : 10,
-                 "width": 10,
-                 "height": 10
+                 "length" :' . $chosenPackage->{'length'} . ',
+                 "width": ' . $chosenPackage->{'width'} . ',
+                 "height": ' . $chosenPackage->{'height'} . '
             }';
 
             $this->_logger->debug("postdata", ["postdata" => $post_data]);
