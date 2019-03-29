@@ -123,7 +123,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $this->_logger->debug('Error', []);
             }
 
-            $usedPackage = $this->calculateNeededPackage($orderVolWeight, $weight, $packages);
+            $usedPackage = $this->calculateNeededPackage($orderVolWeight, $packages);
 
             $this->_logger->debug('product', ['$volWeight' => $packageVolWeight, '$maxWeight' => $orderVolWeight, 'package' => $usedPackage]);
 
