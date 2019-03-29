@@ -286,8 +286,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     private function calculateNeededPackage($orderWeight, $packageVolWeight, $packages)
     {
-        $choosenPackVolWeight = 10000;
-        $choosenPackage = null;
+        $chosenPackVolWeight = 10000;
+        $chosenPackage = null;
         $biggerPackage = null;
         $biggerPackageVolWeight = 0;
         $qty = 1;
@@ -302,9 +302,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $biggerPackage = $package;
             }
 
-            if ($packageVolWeight < $choosenPackVolWeight && $packageVolWeight >= $orderWeight) {
-                $choosenPackVolWeight = $packageVolWeight;
-                $choosenPackage = $package;
+            if ($packageVolWeight < $chosenPackVolWeight && $packageVolWeight >= $orderWeight) {
+                $chosenPackVolWeight = $packageVolWeight;
+                $chosenPackage = $package;
             }
         }
 
@@ -315,7 +315,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         }
 
         return [
-            'package' => $choosenPackage,
+            'package' => $chosenPackage,
             'qty' => $qty
         ];
     }
