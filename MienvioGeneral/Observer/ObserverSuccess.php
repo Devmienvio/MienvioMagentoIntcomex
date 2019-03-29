@@ -46,7 +46,7 @@ class ObserverSuccess implements ObserverInterface
             $order = $observer->getEvent()->getOrder();
             $Carriers = $shipping_id;
             $order->setMienvioCarriers($Carriers);
-            $orderId = $this->getOrderId();
+            $orderId = $order->getId();
             $apiKey = $this->_mienvioHelper->getMienvioApi();
             $orderData = $order->getData();
 
