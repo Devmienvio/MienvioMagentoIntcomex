@@ -39,10 +39,10 @@ class ObserverSuccess implements ObserverInterface
         if ($shippingMethodObject->getCarrierCode() != $this->_code) {
             return $this;
         }
+
         // Logic to save orders in mienvio api
-        try{
-            $env =  $this->_mienvioHelper->getEnvironment();
-            $url = 'api/shipments';
+        try {
+            $baseUrl =  $this->_mienvioHelper->getEnvironment();
             $order = $observer->getEvent()->getOrder();
             $Carriers = $shipping_id;
             $order->setMienvioCarriers($Carriers);
@@ -62,15 +62,19 @@ class ObserverSuccess implements ObserverInterface
             if ($shippingAddress === null) {
                 return $this;
             }
+
             $this->_logger->info("data", ["data" => $shippingAddress->getData()]);
             $this->_logger->info("order", ["order" => $order->getData()]);
+
             $customerName= $shippingAddress->getName();
             $customermail= $shippingAddress->getEmail();
             $customerPhone= $shippingAddress->getTelephone();
+
             $fromZipCode =  $this->_mienvioHelper->getOriginStreet();
             $this->_logger->info("cc", ["cc" => $fromZipCode]);
+
             // Logic to create address
-            $addressUrl = $env . 'api/addresses';
+            $addressUrl = $baseUrl . 'api/addresses';
             $fromData = '{
                 "object_type": "PURCHASE",
                 "name": "'.$customerName.'",
@@ -92,35 +96,46 @@ class ObserverSuccess implements ObserverInterface
                 "reference": ""
                 }
             ';
+
             $this->_logger->info("obje", ["toData" => $toData,"fromData" => $fromData]);
+
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
+
             $this->_curl->post($addressUrl, $fromData);
             $responseFROM = $this->_curl->getBody();
             $json_obj_from = json_decode($responseFROM);
+            $fromAddress = $json_obj_from->{'address'}->{'object_id'};
+
             $this->_curl->post($addressUrl, $toData);
             $responseTO = $this->_curl->getBody();
             $json_obj_to = json_decode($responseTO);
             $toAddress = $json_obj_to->{'address'}->{'object_id'};
-            $FromAddress = $json_obj_from->{'address'}->{'object_id'};
-            $this->_logger->info("responses", ["to" => $toAddress,"from" => $FromAddress]);
-            // TODO: Finish logic to save shipment
-            $orderObject = '{
-              "object_purpose": "PURCHASE",
-              "address_from": '.$FromAddress.',
-              "address_to": '.$toAddress.',
-              "weight": shipment.weight,
-              "length": 10,
-              "source_type": "web_portal",
-              "height": 10,
-              "description": shipment.description,
-              "width": 10,
-              "declared_value": shipment.insuredAmount,
-              "rate":,
-              null,
-              null
-            }
-            ';
+
+
+            $this->_logger->info("responses", ["to" => $toAddress,"from" => $fromAddress]);
+
+            $postData = '{
+                "object_purpose": "PURCHASE",
+                "address_from": ' . $fromAddress . ',
+                "address_to": ' . $toAddress . ',
+                "weight": ' . $orderWeight . ',
+                "description": Articulos varios,
+                "declared_value": ' . $packageValue .',
+                "source_type": "api",
+                "length" :' . $orderLength  . ',
+                "width": ' . $orderWidth . ',
+                "height": ' . $orderHeight . '
+                "rate" :' . $shipping_id . '
+            }';
+
+            $this->_logger->info('orderObject', ["data" => $orderObject]);
+
+            $this->_curl->post($baseUrl . '/api/shipments', $postData);
+            $response = $this->_curl->getBody();
+            $json_obj = json_decode($response);
+
+            $this->_logger->info('shipment PURCHASE', ["data" => $json_obj]);
         } catch (\Exception $e) {
             $this->_logger->info("error saving new shipping method Exception");
             $this->_logger->info($e->getMessage());
