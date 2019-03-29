@@ -115,8 +115,57 @@ class ObserverSuccess implements ObserverInterface
             $json_obj_to = json_decode($responseTO);
             $toAddress = $json_obj_to->{'address'}->{'object_id'};
 
-
             $this->_logger->info("responses", ["to" => $toAddress,"from" => $fromAddress]);
+
+            /* Measures */
+            $realWeight = $this->convertWeight($packageWeight);
+            $items = $order->getAllItems();
+            $packageVolWeight = 0;
+
+            $orderLength = 0;
+            $orderWidth = 0;
+            $orderHeight = 0;
+
+            foreach ($items as $item) {
+                $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+                $productName = $item->getName();
+                $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
+
+                $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
+                $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
+                $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
+                $weight = $this->convertWeight($product->getData('weight'));
+
+                $orderLength += $length;
+                $orderWidth  += $width;
+                $orderHeight += $height;
+
+                $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
+                $packageVolWeight += $volWeight;
+
+                $this->_logger->debug('product',
+                ['id' => $item->getId(), 'name' => $productName,
+                '$length' => $length, '$width' => $width,
+                '$height' => $height, '$weight' => $weight, '$volWeight' => $volWeight]);
+            }
+
+            $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
+
+            $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
+
+            try {
+                $packages = $this->getAvailablePackages($baseUrl, $options);
+                $chosenPackage = $this->calculateNeededPackage($orderWeight, $packages);
+
+                $orderLength = $chosenPackage->{'length'};
+                $orderWidth = $chosenPackage->{'width'};
+                $orderHeight = $chosenPackage->{'height'};
+            } catch (\Exception $e) {
+                $this->_logger->debug('Error when getting needed package', ['e' => $e]);
+            }
+
+            $this->_logger->debug('product', ['$realWeight' => $realWeight,'$volWeight' => $packageVolWeight, '$maxWeight' => $orderWeight, 'package' => $chosenPackage]);
+
 
             $postData = '{
                 "object_purpose": "PURCHASE",
@@ -124,7 +173,7 @@ class ObserverSuccess implements ObserverInterface
                 "address_to": ' . $toAddress . ',
                 "weight": ' . $orderWeight . ',
                 "description": Articulos varios,
-                "declared_value": ' . $packageValue .',
+                "declared_value": ' . $order->getPackageValue() .',
                 "source_type": "api",
                 "length" :' . $orderLength  . ',
                 "width": ' . $orderWidth . ',
@@ -132,7 +181,7 @@ class ObserverSuccess implements ObserverInterface
                 "rate" :' . $shipping_id . '
             }';
 
-            $this->_logger->info('orderObject', ["data" => $orderObject]);
+            $this->_logger->info('orderObject', ["data" => $postData]);
 
             $this->_curl->post($baseUrl . '/api/shipments', $postData);
             $response = $this->_curl->getBody();
@@ -145,5 +194,99 @@ class ObserverSuccess implements ObserverInterface
         }
 
         return $this;
+    }
+
+    /**
+     * Retrieve user packages
+     *
+     * @param  string $baseUrl
+     * @return array
+     */
+    private function getAvailablePackages($baseUrl, $options)
+    {
+        $url = $baseUrl . 'api/packages';
+        $this->_curl->setOptions($options);
+        $this->_curl->get($url);
+        $response = $this->_curl->getBody();
+        $json_obj = json_decode($response);
+        $packages = $json_obj->{'results'};
+
+        $this->_logger->debug("packages", ["packages" => $packages]);
+
+        return $packages;
+    }
+
+    /**
+     * Calculates volumetric weight of given measures
+     *
+     * @param  float $length
+     * @param  float $width
+     * @param  float $height
+     * @return float
+     */
+    private function calculateVolumetricWeight($length, $width, $height)
+    {
+        $volumetricWeight = round(((1 * $length * $width * $height) / 5000), 4);
+
+		return $volumetricWeight;
+    }
+
+    /**
+     * Retrieves weight in KG
+     *
+     * @param  float $_weigth
+     * @return float
+     */
+    private function convertWeight($_weigth)
+    {
+        $storeWeightUnit = $this->directoryHelper->getWeightUnit();
+        $weight = 0;
+        switch ($storeWeightUnit) {
+            case 'lbs':
+                $weight = $_weigth * $this->lbs_kg;
+                break;
+            case 'kgs':
+                $weight = $_weigth;
+                break;
+        }
+
+        return ceil($weight);
+    }
+
+    /**
+     * Convert inches to cms
+     *
+     * @param  float $inches
+     * @return float
+     */
+    private function convertInchesToCms($inches)
+    {
+        return $inches * 2.54;
+    }
+
+    /**
+     * Calculates needed package size for order items
+     *
+     * @param  float $orderWeight
+     * @param  array $packages
+     * @return array
+     */
+    private function calculateNeededPackage($orderWeight, $packages)
+    {
+        $choosenPackVolWeight = 10000;
+        $choosenPackage = null;
+
+        foreach ($packages as $package) {
+            $packageVolWeight = $this->calculateVolumetricWeight(
+                $package->{'length'}, $package->{'width'}, $package->{'height'}
+            );
+
+            if ($packageVolWeight < $choosenPackVolWeight && $packageVolWeight >= $orderWeight) {
+                $choosenPackVolWeight = $packageVolWeight;
+                $choosenPackage = $package;
+            }
+        }
+
+        return $choosenPackage;
     }
 }
