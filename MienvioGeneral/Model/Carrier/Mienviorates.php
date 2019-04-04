@@ -170,7 +170,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             // Call Api to create rutes
             $url = $baseUrl . 'api/shipments';
 
-            if ($this->checkIfZipcodeIsLevel1($fromZipCode)) {
+            if ($destCountryId === 'PE') {
                 $post_data = '{
                      "object_purpose": "QUOTE",
                      "from_level1": ' . $fromZipCode . ',
