@@ -71,11 +71,9 @@ class ObserverSuccess implements ObserverInterface
             $customermail= $shippingAddress->getEmail();
             $customerPhone= $shippingAddress->getTelephone();
 
-            $fromZipCode =  $this->_mienvioHelper->getOriginStreet();
-            $this->_logger->info("cc", ["cc" => $fromZipCode]);
-
             // Logic to create address
             $addressUrl = $baseUrl . 'api/addresses';
+            $this->_logger->info("cc", ["cc" => $shippingAddress->getCountryId()]);
 
             $fromData = $this->createAddressDataStr(
                 "MIENVIO DE MEXICO",
@@ -357,7 +355,7 @@ class ObserverSuccess implements ObserverInterface
             $country = 'PE';
         }
 
-        return '{
+        $data = '{
             "object_type": "PURCHASE",
             "name": "'. $name . '",
             "street": "'. $street . '",
@@ -368,5 +366,8 @@ class ObserverSuccess implements ObserverInterface
             "phone": "'. $phone .'",
             "reference": "'. $reference .'"
             }';
+
+        $this->_logger->info("createAddressDataStr", ["data" => $data]);
+        return $data;
     }
 }
