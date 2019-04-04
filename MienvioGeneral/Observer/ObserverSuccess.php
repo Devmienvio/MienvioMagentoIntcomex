@@ -340,7 +340,6 @@ class ObserverSuccess implements ObserverInterface
      */
     private function createAddressDataStr($name, $street, $street2, $zipcode, $email, $phone, $reference = '.')
     {
-        $this->_logger->info("createAddressDataStr", ["data" => $countryId]);
         $street = substr($street, 0, 35);
         $street2 = substr($street2, 0, 35);
         $name = substr($name, 0, 80);
