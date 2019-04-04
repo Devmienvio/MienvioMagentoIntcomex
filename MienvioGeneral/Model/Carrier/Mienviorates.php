@@ -173,8 +173,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             if ($destCountryId === 'PE') {
                 $post_data = '{
                      "object_purpose": "QUOTE",
-                     "from_level1": ' . $fromZipCode . ',
-                     "to_level1": ' . $destPostcode . ',
+                     "from_level1": "' . $fromZipCode . '",
+                     "to_level1": "' . $destPostcode . '",
                      "weight": ' . $orderWeight . ',
                      "declared_value": ' . $packageValue .',
                      "description" : "' . $orderDescription .'",
