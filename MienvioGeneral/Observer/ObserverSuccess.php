@@ -350,7 +350,7 @@ class ObserverSuccess implements ObserverInterface
             "name": "'. $name . '",
             "street": "'. $street . '",
             "street2": "'. $street2 . '",
-            "level_1": '. $zipcode . ',
+            "level_1": "'. $zipcode . '",
             "country": "PE",
             "email": "'. $email .'",
             "phone": "'. $phone .'",
