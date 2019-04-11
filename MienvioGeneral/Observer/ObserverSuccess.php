@@ -166,8 +166,8 @@ class ObserverSuccess implements ObserverInterface
                 'rate' => $shipping_id,
                 'quantity' => $numberOfPackages,
                 'order' => [
-                    'marketplace' : 'magento',
-                    'object_id' : $orderData['quote_id']
+                    'marketplace' => 'magento',
+                    'object_id' => $orderData['quote_id']
                 ]
             ];
 
