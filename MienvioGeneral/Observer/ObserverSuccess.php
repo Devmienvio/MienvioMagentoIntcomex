@@ -43,13 +43,14 @@ class ObserverSuccess implements ObserverInterface
         // Logic to save orders in mienvio api
         try {
             $baseUrl =  $this->_mienvioHelper->getEnvironment();
-            $order = $observer->getEvent()->getOrder();
-            $Carriers = $shipping_id;
-            $order->setMienvioCarriers($Carriers);
-            $orderId = $order->getId();
             $apiKey = $this->_mienvioHelper->getMienvioApi();
-            $orderData = $order->getData();
+            $getPackagesUrl = $baseUrl . 'api/packages';
+            $createAddressUrl = $baseUrl . 'api/addresses';
 
+            $order = $observer->getEvent()->getOrder();
+            $order->setMienvioCarriers($shipping_id);
+            $orderId = $order->getId();
+            $orderData = $order->getData();
             $quoteId = $order->getQuoteId();
 
             if ($quoteId === null) {
@@ -57,7 +58,6 @@ class ObserverSuccess implements ObserverInterface
             }
 
             $quote = $this->quoteRepository->get($quoteId);
-
             $shippingAddress = $quote->getShippingAddress();
 
             if ($shippingAddress === null) {
@@ -71,8 +71,6 @@ class ObserverSuccess implements ObserverInterface
             $customermail= $shippingAddress->getEmail();
             $customerPhone= $shippingAddress->getTelephone();
 
-            // Logic to create address
-            $addressUrl = $baseUrl . 'api/addresses';
             $this->_logger->info("cc", ["cc" => $shippingAddress->getCountryId()]);
 
             $fromData = $this->createAddressDataStr(
@@ -97,22 +95,20 @@ class ObserverSuccess implements ObserverInterface
             );
 
 
-            $this->_logger->info("obje", ["toData" => $toData,"fromData" => $fromData]);
+            $this->_logger->info("Addresses data", ["to" => $toData, "from" => $fromData]);
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
 
-            $this->_curl->post($addressUrl, $fromData);
-            $responseFROM = $this->_curl->getBody();
-            $json_obj_from = json_decode($responseFROM);
-            $fromAddress = $json_obj_from->{'address'}->{'object_id'};
+            $this->_curl->post($createAddressUrl, $fromData);
+            $addressFromResp = json_decode($this->_curl->getBody());
+            $addressFromId = $addressFromResp->{'address'}->{'object_id'};
 
-            $this->_curl->post($addressUrl, $toData);
-            $responseTO = $this->_curl->getBody();
-            $json_obj_to = json_decode($responseTO);
-            $toAddress = $json_obj_to->{'address'}->{'object_id'};
+            $this->_curl->post($createAddressUrl, $toData);
+            $addressToResp = json_decode($this->_curl->getBody());
+            $addressToId = $addressToResp->{'address'}->{'object_id'};
 
-            $this->_logger->info("responses", ["to" => $toAddress,"from" => $fromAddress]);
+            $this->_logger->info("responses", ["to" => $addressToId, "from" => $addressFromId]);
 
             /* Measures */
             $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllItems());
@@ -131,7 +127,7 @@ class ObserverSuccess implements ObserverInterface
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
 
             try {
-                $packages = $this->getAvailablePackages($baseUrl, $options);
+                $packages = $this->getAvailablePackages($getPackagesUrl, $options);
                 $packageCalculus = $this->calculateNeededPackage($orderWeight, $packageVolWeight, $packages);
                 $chosenPackage = $packageCalculus['package'];
                 $numberOfPackages = $packageCalculus['qty'];
@@ -154,8 +150,8 @@ class ObserverSuccess implements ObserverInterface
 
             $shipmentReqData = [
                 'object_purpose' => 'PURCHASE',
-                'address_from' => $fromAddress,
-                'address_to' => $toAddress,
+                'address_from' => $addressFromId,
+                'address_to' => $addressToId,
                 'weight' => $orderWeight,
                 'declared_value' => $orderData['subtotal_incl_tax'],
                 'description' => $orderDescription,
@@ -244,14 +240,12 @@ class ObserverSuccess implements ObserverInterface
      * @param  string $baseUrl
      * @return array
      */
-    private function getAvailablePackages($baseUrl, $options)
+    private function getAvailablePackages($url, $options)
     {
-        $url = $baseUrl . 'api/packages';
         $this->_curl->setOptions($options);
         $this->_curl->get($url);
-        $response = $this->_curl->getBody();
-        $json_obj = json_decode($response);
-        $packages = $json_obj->{'results'};
+        $response = json_decode($this->_curl->getBody());
+        $packages = $response->{'results'};
 
         $this->_logger->debug("packages", ["packages" => $packages]);
 
