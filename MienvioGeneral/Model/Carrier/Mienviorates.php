@@ -167,7 +167,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $fullAddressProcessed['suburb'],
                 $destPostcode,
                 "ventas@mienvio.mx",
-                "5551814040"
+                "5551814040",
                 $fullAddressProcessed['suburb']
             );
 
