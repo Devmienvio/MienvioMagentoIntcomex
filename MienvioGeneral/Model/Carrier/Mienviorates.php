@@ -124,10 +124,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $createShipmentUrl = $baseUrl . 'api/shipments';
         $quoteShipmentUrl = $baseUrl . 'api/shipments/$shipmentId/rates';
         $getPackagesUrl = $baseUrl . 'api/packages';
+        $createAddressUrl = $baseUrl . 'api/addresses';
 
 
         try {
-            /* Location data */
+            /* ADDRESS CREATION */
             $destCountryId = $request->getDestCountryId();
             $destCountry = $request->getDestCountry();
             $destRegion = $request->getDestRegionId();
@@ -151,6 +152,39 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 'originZipcode' => $this->_mienvioHelper->getOriginZipCode()
             ]);
 
+            $fromData = $this->createAddressDataStr(
+                "MIENVIO DE MEXICO",
+                $this->_mienvioHelper->getOriginStreet(),
+                $this->_mienvioHelper->getOriginStreet2(),
+                $this->_mienvioHelper->getOriginZipCode(),
+                "ventas@mienvio.mx",
+                "5551814040"
+            );
+
+            $toData = $this->createAddressDataStr(
+                'usuario temporal',
+                substr($destFullStreet, 30),
+                $fullAddressProcessed['suburb'],
+                $destPostcode,
+                "ventas@mienvio.mx",
+                "5551814040"
+                $fullAddressProcessed['suburb']
+            );
+
+            $this->_logger->info("Addresses data", ["to" => $toData, "from" => $fromData]);
+
+            $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
+            $this->_curl->setOptions($options);
+
+            $this->_curl->post($createAddressUrl, $fromData);
+            $addressFromResp = json_decode($this->_curl->getBody());
+            $addressFromId = $addressFromResp->{'address'}->{'object_id'};
+
+            $this->_curl->post($createAddressUrl, $toData);
+            $addressToResp = json_decode($this->_curl->getBody());
+            $addressToId = $addressToResp->{'address'}->{'object_id'};
+
+            $this->_logger->info("responses", ["to" => $addressToId, "from" => $addressFromId]);
 
             $itemsMeasures = $this->getOrderDefaultMeasures($request->getAllItems());
             $packageWeight = $this->convertWeight($request->getPackageWeight());
@@ -164,8 +198,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $packageVolWeight = ceil($packageVolWeight);
             $orderWeight = $packageVolWeight > $packageWeight ? $packageVolWeight : $packageWeight;
             $orderDescription = substr($orderDescription, 0, 30);
-
-            $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
 
             try {
                 $packages = $this->getAvailablePackages($getPackagesUrl, $options);
@@ -194,6 +226,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             $shipmentReqData = [
                 'object_purpose' => 'QUOTE',
+                'address_from' => $addressFromId,
+                'address_to' => $addressToId,
                 'weight' => $orderWeight,
                 'declared_value' => $packageValue,
                 'description' => $orderDescription,
@@ -202,14 +236,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 'width' => $orderWidth,
                 'height' => $orderHeight
             ];
-
-            if (in_array($destCountryId, self::LEVEL_1_COUNTRIES)) {
-                $shipmentReqData['from_level1'] = $fromZipCode;
-                $shipmentReqData['to_level1'] = $destPostcode;
-            } else {
-                $shipmentReqData['zipcode_from'] = $fromZipCode;
-                $shipmentReqData['zipcode_to'] = $destPostcode;
-            }
 
             $this->_logger->debug("postdata", ["postdata" => $shipmentReqData]);
 
@@ -247,6 +273,41 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $this->_logger->debug($e);
         }
         return $rateResponse;
+    }
+
+    /**
+     * Creates an string with the address data
+     *
+     * @param  string $name
+     * @param  string $street
+     * @param  string $street2
+     * @param  string $zipcode
+     * @param  string $email
+     * @param  string $phone
+     * @param  string $reference
+     * @return string
+     */
+    private function createAddressDataStr($name, $street, $street2, $zipcode, $email, $phone, $reference = '.')
+    {
+        $street = substr($street, 0, 35);
+        $street2 = substr($street2, 0, 35);
+        $name = substr($name, 0, 80);
+        $phone = substr($phone, 0, 20);
+
+        $data = '{
+            "object_type": "PURCHASE",
+            "name": "'. $name . '",
+            "street": "'. $street . '",
+            "street2": "'. $street2 . '",
+            "level_1": "'. $zipcode . '",
+            "country": "PE",
+            "email": "'. $email .'",
+            "phone": "'. $phone .'",
+            "reference": "'. $reference .'"
+            }';
+
+        $this->_logger->info("createAddressDataStr", ["data" => $data]);
+        return $data;
     }
 
     /**
