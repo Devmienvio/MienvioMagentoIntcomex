@@ -181,7 +181,28 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             // Call Api to create rutes
             $url = $baseUrl . 'api/shipments';
 
-            $post_data = '{
+            $jsonPostData = [
+                'object_purpose' => 'QUOTE',
+                'weight' => $orderWeight,
+                'declared_value' => $packageValue,
+                'description' => $orderDescription,
+                'source_type' => 'api',
+                'length' => $orderLength,
+                'width' => $orderWidth,
+                'height' => $orderHeight
+            ];
+
+            if ($destCountryId === 'PE') {
+                $jsonPostData['from_level1'] => $fromZipCode;
+                $jsonPostData['to_level1'] => $destPostcode;
+            }
+
+            if ($destCountryId === 'MX') {
+                $jsonPostData['zipcode_from'] => $fromZipCode;
+                $jsonPostData['zipcode_to'] => $destPostcode;
+            }
+
+            /*$post_data = '{
                  "object_purpose": "QUOTE",
                  "weight": ' . $orderWeight . ',
                  "declared_value": ' . $packageValue .',
@@ -202,7 +223,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                               "zipcode_to": "' . $destPostcode . '",
                               }';
             }
-
+*/
 
 /*            if ($destCountryId === 'PE') {
                 $post_data = '{
@@ -232,10 +253,10 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 }';
             }
 */
-            $this->_logger->debug("postdata", ["postdata" => $post_data]);
+            $this->_logger->debug("postdata", ["postdata" => $jsonPostData]);
 
             $this->_curl->setOptions($options);
-            $this->_curl->post($url, $post_data);
+            $this->_curl->post($url, json_encode($jsonPostData));
             $response = $this->_curl->getBody();
             $json_obj = json_decode($response);
 
