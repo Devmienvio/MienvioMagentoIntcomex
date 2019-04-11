@@ -76,6 +76,18 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $destSuburb = "";
             $destCity = $request->getDestCity();
 
+            $this->_logger->debug('Shop address info', [
+                '$destCountryId' => $destCountryId,
+                '$destCountry' => $destCountry,
+                '$destRegion' => $destRegion,
+                '$destRegionCode' => $destRegionCode,
+                '$destFullStreet' => $destFullStreet,
+                '$destStreet' => $destStreet,
+                '$destSuburb' => $destSuburb,
+                '$destCity' => $destCity
+            ]);
+
+
             $destPostcode = $request->getDestPostcode();
 
             if ($destFullStreet != null && $destFullStreet != "") {
@@ -157,18 +169,34 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             // Call Api to create rutes
             $url = $baseUrl . 'api/shipments';
-            $post_data = '{
-                 "object_purpose": "QUOTE",
-                 "zipcode_from": ' . $fromZipCode . ',
-                 "zipcode_to": ' . $destPostcode . ',
-                 "weight": ' . $orderWeight . ',
-                 "declared_value": ' . $packageValue .',
-                 "description" : "' . $orderDescription .'",
-                 "source_type" : "api",
-                 "length" :' . $orderLength  . ',
-                 "width": ' . $orderWidth . ',
-                 "height": ' . $orderHeight . '
-            }';
+
+            if ($destCountryId === 'PE') {
+                $post_data = '{
+                     "object_purpose": "QUOTE",
+                     "from_level1": "' . $fromZipCode . '",
+                     "to_level1": "' . $destPostcode . '",
+                     "weight": ' . $orderWeight . ',
+                     "declared_value": ' . $packageValue .',
+                     "description" : "' . $orderDescription .'",
+                     "source_type" : "api",
+                     "length" :' . $orderLength  . ',
+                     "width": ' . $orderWidth . ',
+                     "height": ' . $orderHeight . '
+                }';
+            } else {
+                $post_data = '{
+                     "object_purpose": "QUOTE",
+                     "zipcode_from": ' . $fromZipCode . ',
+                     "zipcode_to": ' . $destPostcode . ',
+                     "weight": ' . $orderWeight . ',
+                     "declared_value": ' . $packageValue .',
+                     "description" : "' . $orderDescription .'",
+                     "source_type" : "api",
+                     "length" :' . $orderLength  . ',
+                     "width": ' . $orderWidth . ',
+                     "height": ' . $orderHeight . '
+                }';
+            }
 
             $this->_logger->debug("postdata", ["postdata" => $post_data]);
 
