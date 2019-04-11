@@ -19,8 +19,12 @@ use MienvioMagento\MienvioGeneral\Helper\Data as Helper;
 
 class Mienviorates extends AbstractCarrier implements CarrierInterface
 {
-
+    /**
+     * Directory Helper
+     * @var \Magento\Directory\Helper\Data
+     */
     private $directoryHelper;
+
     public function __construct(
         ScopeConfigInterface $scopeConfig,
         ErrorFactory $rateErrorFactory,
@@ -43,27 +47,73 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         parent::__construct($scopeConfig, $rateErrorFactory, $logger, $data);
     }
 
+    /**
+     * Retrieve allowed methods
+     *
+     * @return string
+     */
     public function getAllowedMethods()
     {
-        return [$this->getCarrierCode() => __($this->getConfigData('name'))];
+        return [
+            $this->getCarrierCode() => __($this->getConfigData('name'))
+        ];
     }
 
-    public function collectRates(RateRequest $request)
+    private function checkIfMienvioEnvIsSet()
     {
         $isActive = $this->_mienvioHelper->isMienvioActive();
+        $apiKey = $this->_mienvioHelper->getMienvioApi();
+        $apiSource = $this->getConfigData('apikey');
 
         if (!$isActive) {
             return false;
         }
 
-        $result = $this->_rateResultFactory->create();
-
-        $apiKey = $this->_mienvioHelper->getMienvioApi();
-        $apiSource = $this->getConfigData('apikey');
-        $baseUrl =  $this->_mienvioHelper->getEnvironment();
         if ($apiKey == "" || $apiSource == "NA") {
             return false;
         }
+    }
+
+    /**
+     * Process full street string and retrieves street and suburb
+     *
+     * @param  string $fullStreet
+     * @return array
+     */
+    private function processFullAddress($fullStreet)
+    {
+        $response = [
+            'street' => '',
+            'suburb' => ''
+        ];
+
+        if ($fullStreet != null && $fullStreet != "") {
+            $fullStreetArray = explode("\n", $fullStreet);
+            $count = count($fullStreetArray);
+
+            if ($count > 0 && $fullStreetArray[0] !== false) {
+                $response['street'] = $fullStreetArray[0];
+            }
+
+            if ($count > 1 && $fullStreetArray[1] !== false) {
+                $response['suburb'] = $fullStreetArray[1];
+            }
+        }
+
+        return $response;
+    }
+
+    /**
+     * Retrieve rates for given shipping request
+     *
+     * @param  RateRequest $request
+     * @return [type]               [description]
+     */
+    public function collectRates(RateRequest $request)
+    {
+        $rateResponse = $this->_rateResultFactory->create();
+        $apiKey = $this->_mienvioHelper->getMienvioApi();
+        $baseUrl =  $this->_mienvioHelper->getEnvironment();
 
         try {
             /* Location data */
@@ -72,75 +122,33 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $destRegion = $request->getDestRegionId();
             $destRegionCode = $request->getDestRegionCode();
             $destFullStreet = $request->getDestStreet();
-            $destStreet = "";
-            $destSuburb = "";
+            $fullAddressProcessed = $this->processFullAddress($destFullStreet);
             $destCity = $request->getDestCity();
+            $destPostcode = $request->getDestPostcode();
 
             $this->_logger->debug('Shop address info', [
-                '$destCountryId' => $destCountryId,
-                '$destCountry' => $destCountry,
-                '$destRegion' => $destRegion,
-                '$destRegionCode' => $destRegionCode,
-                '$destFullStreet' => $destFullStreet,
-                '$destStreet' => $destStreet,
-                '$destSuburb' => $destSuburb,
-                '$destCity' => $destCity
+                'destCountryId' => $destCountryId,
+                'destCountry'   => $destCountry,
+                'destRegion'    => $destRegion,
+                'destRegionCode' => $destRegionCode,
+                'destFullStreet' => $destFullStreet,
+                'destStreet'    => $fullAddressProcessed['street'],
+                'destSuburb'    => $fullAddressProcessed['suburb'],
+                'destCity'      => $destCity
             ]);
 
 
-            $destPostcode = $request->getDestPostcode();
-
-            if ($destFullStreet != null && $destFullStreet != "") {
-                $destFullStreetArray = explode("\n", $destFullStreet);
-                $count = count($destFullStreetArray);
-                if ($count > 0 && $destFullStreetArray[0] !== false) {
-                    $destStreet = $destFullStreetArray[0];
-                }
-                if ($count > 1 && $destFullStreetArray[1] !== false) {
-                    $destSuburb = $destFullStreetArray[1];
-                }
-            }
-
-            $packageValue = $request->getPackageValue();
-            $packageWeight = $request->getPackageWeight();
-            $fromZipCode = $request->getPostcode();
-            $realWeight = $this->convertWeight($packageWeight);
-
-            $items = $request->getAllItems();
-            $packageVolWeight = 0;
-
-            $orderLength = 0;
-            $orderWidth = 0;
-            $orderHeight = 0;
-            $orderDescription = '';
+            $itemsMeasures = $this->getOrderDefaultMeasures($request->getAllItems());
+            $packageWeight = $this->convertWeight($request->getPackageWeight());
+            $packageVolWeight = $itemsMeasures['vol_weight'];
+            $orderLength = $itemsMeasures['length'];
+            $orderWidth  = $itemsMeasures['width'];
+            $orderHeight = $itemsMeasures['height'];
+            $orderDescription = $itemsMeasures['description'];
             $numberOfPackages = 1;
 
-            foreach ($items as $item) {
-                $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-                $productName = $item->getName();
-                $orderDescription .= $productName . ' ';
-                $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
-
-                $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
-                $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
-                $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
-                $weight = $this->convertWeight($product->getData('weight'));
-
-                $orderLength += $length;
-                $orderWidth  += $width;
-                $orderHeight += $height;
-
-                $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
-                $packageVolWeight += $volWeight;
-
-                $this->_logger->debug('product',
-                ['id' => $item->getId(), 'name' => $productName,
-                '$length' => $length, '$width' => $width,
-                '$height' => $height, '$weight' => $weight, '$volWeight' => $volWeight]);
-            }
-
             $packageVolWeight = ceil($packageVolWeight);
-            $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
+            $orderWeight = $packageVolWeight > $packageWeight ? $packageVolWeight : $packageWeight;
             $orderDescription = substr($orderDescription, 0, 30);
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
@@ -148,18 +156,21 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             try {
                 $packages = $this->getAvailablePackages($baseUrl, $options);
                 $packageCalculus = $this->calculateNeededPackage($orderWeight, $packageVolWeight, $packages);
-                $chosenPackage = $packageCalculus['package'];
+                $chosenPackage   = $packageCalculus['package'];
                 $numberOfPackages = $packageCalculus['qty'];
 
                 $orderLength = $chosenPackage->{'length'};
-                $orderWidth = $chosenPackage->{'width'};
+                $orderWidth  = $chosenPackage->{'width'};
                 $orderHeight = $chosenPackage->{'height'};
             } catch (\Exception $e) {
                 $this->_logger->debug('Error when getting needed package', ['e' => $e]);
             }
 
+            $packageValue = $request->getPackageValue();
+            $fromZipCode = $request->getPostcode();
+
             $this->_logger->debug('order info', [
-                '$realWeight' => $realWeight,
+                '$packageWeight' => $packageWeight,
                 '$volWeight' => $packageVolWeight,
                 '$maxWeight' => $orderWeight,
                 'package' => $chosenPackage,
@@ -170,7 +181,30 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             // Call Api to create rutes
             $url = $baseUrl . 'api/shipments';
 
+            $post_data = '{
+                 "object_purpose": "QUOTE",
+                 "weight": ' . $orderWeight . ',
+                 "declared_value": ' . $packageValue .',
+                 "description" : "' . $orderDescription .'",
+                 "source_type" : "api",
+                 "length" :' . $orderLength  . ',
+                 "width": ' . $orderWidth . ',
+                 "height": ' . $orderHeight . ',';
+
             if ($destCountryId === 'PE') {
+                $post_data .= '"from_level1": "' . $fromZipCode . '",
+                              "to_level1": "' . $destPostcode . '",
+                              }';
+            }
+
+            if ($destCountryId === 'MX') {
+                $post_data .= '"zipcode_from": "' . $fromZipCode . '",
+                              "zipcode_to": "' . $destPostcode . '",
+                              }';
+            }
+
+
+/*            if ($destCountryId === 'PE') {
                 $post_data = '{
                      "object_purpose": "QUOTE",
                      "from_level1": "' . $fromZipCode . '",
@@ -197,7 +231,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                      "height": ' . $orderHeight . '
                 }';
             }
-
+*/
             $this->_logger->debug("postdata", ["postdata" => $post_data]);
 
             $this->_curl->setOptions($options);
@@ -226,7 +260,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                         $method->setMethodTitle($rate->{'servicelevel'});
                         $method->setPrice($rate->{'amount'} * $numberOfPackages);
                         $method->setCost($rate->{'amount'} * $numberOfPackages);
-                        $result->append($method);
+                        $rateResponse->append($method);
                     }
                 }
             }
@@ -234,7 +268,59 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $this->_logger->debug("Rates Exception");
             $this->_logger->debug($e);
         }
-        return $result;
+        return $rateResponse;
+    }
+
+    /**
+     * Retrieves total measures of given items
+     *
+     * @param  Items $items
+     * @return
+     */
+    private function getOrderDefaultMeasures($items)
+    {
+        $packageVolWeight = 0;
+        $orderLength = 0;
+        $orderWidth = 0;
+        $orderHeight = 0;
+        $orderDescription = '';
+
+        foreach ($items as $item) {
+            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+            $productName = $item->getName();
+            $orderDescription .= $productName . ' ';
+            $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
+
+            $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
+            $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
+            $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
+            $weight = $this->convertWeight($product->getData('weight'));
+
+            $orderLength += $length;
+            $orderWidth  += $width;
+            $orderHeight += $height;
+
+            $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
+            $packageVolWeight += $volWeight;
+
+            $this->_logger->debug('product',[
+                'id' => $item->getId(),
+                'name' => $productName,
+                'length' => $length,
+                'width' => $width,
+                'height' => $height,
+                'weight' => $weight,
+                'volWeight' => $volWeight
+            ]);
+        }
+
+        return [
+            'vol_weight'  => $packageVolWeight,
+            'length'      => $orderLength,
+            'width'       => $orderWidth,
+            'height'      => $orderHeight,
+            'description' => $orderDescription
+        ];
     }
 
     /**
