@@ -152,28 +152,28 @@ class ObserverSuccess implements ObserverInterface
                 '$numberOfPackages' => $numberOfPackages
             ]);
 
-            $postData = '{
-                "object_purpose": "PURCHASE",
-                "address_from": ' . $fromAddress . ',
-                "address_to": ' . $toAddress . ',
-                "weight": ' . $orderWeight . ',
-                "declared_value": ' . $orderData['subtotal_incl_tax'] .',
-                "description" : "' . $orderDescription .'",
-                "source_type": "api",
-                "length" :' . $orderLength  . ',
-                "width": ' . $orderWidth . ',
-                "height": ' . $orderHeight . ',
-                "rate" :' . $shipping_id . ',
-                "quantity" :' . $numberOfPackages . ',
-                "order" : {
-                    "marketplace" : "magento",
-                    "object_id" : "' . $orderData['quote_id'] . '"
-                }
-            }';
+            $shipmentReqData = [
+                'object_purpose' => 'PURCHASE',
+                'address_from' => $fromAddress,
+                'address_to' => $toAddress,
+                'weight' => $orderWeight,
+                'declared_value' => $orderData['subtotal_incl_tax'],
+                'description' => $orderDescription,
+                'source_type' => 'api',
+                'length' => $orderLength,
+                'width' => $orderWidth,
+                'height' => $orderHeight,
+                'rate' => $shipping_id,
+                'quantity' => $numberOfPackages,
+                'order' => [
+                    'marketplace' : 'magento',
+                    'object_id' : $orderData['quote_id']
+                ]
+            ];
 
-            $this->_logger->info('orderObject', ["data" => $postData]);
+            $this->_logger->info('orderObject', ["data" => $shipmentReqData]);
 
-            $this->_curl->post($baseUrl . '/api/shipments', $postData);
+            $this->_curl->post($baseUrl . '/api/shipments', json_encode($shipmentReqData));
             $response = $this->_curl->getBody();
             $json_obj = json_decode($response);
 
