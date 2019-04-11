@@ -193,13 +193,13 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             ];
 
             if ($destCountryId === 'PE') {
-                $jsonPostData['from_level1'] => $fromZipCode;
-                $jsonPostData['to_level1'] => $destPostcode;
+                $jsonPostData['from_level1'] = $fromZipCode;
+                $jsonPostData['to_level1'] = $destPostcode;
             }
 
             if ($destCountryId === 'MX') {
-                $jsonPostData['zipcode_from'] => $fromZipCode;
-                $jsonPostData['zipcode_to'] => $destPostcode;
+                $jsonPostData['zipcode_from'] = $fromZipCode;
+                $jsonPostData['zipcode_to'] = $destPostcode;
             }
 
             /*$post_data = '{
