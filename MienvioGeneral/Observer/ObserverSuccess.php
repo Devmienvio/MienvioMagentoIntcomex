@@ -115,42 +115,17 @@ class ObserverSuccess implements ObserverInterface
             $this->_logger->info("responses", ["to" => $toAddress,"from" => $fromAddress]);
 
             /* Measures */
-            $realWeight = $this->convertWeight($orderData['weight']);
-            $items = $order->getAllItems();
-            $packageVolWeight = 0;
-
-            $orderLength = 0;
-            $orderWidth = 0;
-            $orderHeight = 0;
-            $orderDescription = '';
+            $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllItems());
+            $packageWeight = $this->convertWeight($orderData['weight']);
+            $packageVolWeight = $itemsMeasures['vol_weight'];
+            $orderLength = $itemsMeasures['length'];
+            $orderWidth  = $itemsMeasures['width'];
+            $orderHeight = $itemsMeasures['height'];
+            $orderDescription = $itemsMeasures['description'];
             $numberOfPackages = 1;
 
-            foreach ($items as $item) {
-                $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-                $productName = $item->getName();
-                $orderDescription .= $productName . ' ';
-                $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
-
-                $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
-                $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
-                $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
-                $weight = $this->convertWeight($product->getData('weight'));
-
-                $orderLength += $length;
-                $orderWidth  += $width;
-                $orderHeight += $height;
-
-                $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
-                $packageVolWeight += $volWeight;
-
-                $this->_logger->debug('product',
-                ['id' => $item->getId(), 'name' => $productName,
-                '$length' => $length, '$width' => $width,
-                '$height' => $height, '$weight' => $weight, '$volWeight' => $volWeight]);
-            }
-
             $packageVolWeight = ceil($packageVolWeight);
-            $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
+            $orderWeight = $packageVolWeight > $packageWeight ? $packageVolWeight : $packageWeight;
             $orderDescription = substr($orderDescription, 0, 30);
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
@@ -169,7 +144,7 @@ class ObserverSuccess implements ObserverInterface
             }
 
             $this->_logger->debug('order info', [
-                '$realWeight' => $realWeight,
+                '$packageWeight' => $packageWeight,
                 '$volWeight' => $packageVolWeight,
                 '$maxWeight' => $orderWeight,
                 'package' => $chosenPackage,
@@ -209,6 +184,58 @@ class ObserverSuccess implements ObserverInterface
         }
 
         return $this;
+    }
+
+    /**
+     * Retrieves total measures of given items
+     *
+     * @param  Items $items
+     * @return
+     */
+    private function getOrderDefaultMeasures($items)
+    {
+        $packageVolWeight = 0;
+        $orderLength = 0;
+        $orderWidth = 0;
+        $orderHeight = 0;
+        $orderDescription = '';
+
+        foreach ($items as $item) {
+            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+            $productName = $item->getName();
+            $orderDescription .= $productName . ' ';
+            $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
+
+            $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
+            $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
+            $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
+            $weight = $this->convertWeight($product->getData('weight'));
+
+            $orderLength += $length;
+            $orderWidth  += $width;
+            $orderHeight += $height;
+
+            $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
+            $packageVolWeight += $volWeight;
+
+            $this->_logger->debug('product',[
+                'id' => $item->getId(),
+                'name' => $productName,
+                'length' => $length,
+                'width' => $width,
+                'height' => $height,
+                'weight' => $weight,
+                'volWeight' => $volWeight
+            ]);
+        }
+
+        return [
+            'vol_weight'  => $packageVolWeight,
+            'length'      => $orderLength,
+            'width'       => $orderWidth,
+            'height'      => $orderHeight,
+            'description' => $orderDescription
+        ];
     }
 
     /**
