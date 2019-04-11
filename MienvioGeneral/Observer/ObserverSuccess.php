@@ -34,7 +34,7 @@ class ObserverSuccess implements ObserverInterface
         /** @var \Magento\Sales\Model\Order $order */
         $order = $observer->getData('order');
         $shippingMethodObject = $order->getShippingMethod(true);
-        $shippingId = $shippingMethodObject->getMethod();
+        $shipping_id = $shippingMethodObject->getMethod();
 
         if ($shippingMethodObject->getCarrierCode() != $this->_code) {
             return $this;
@@ -43,15 +43,13 @@ class ObserverSuccess implements ObserverInterface
         // Logic to save orders in mienvio api
         try {
             $baseUrl =  $this->_mienvioHelper->getEnvironment();
-            $apiKey = $this->_mienvioHelper->getMienvioApi();
-            $getPackagesUrl = $baseUrl . 'api/packages';
-            $createAddressUrl = $baseUrl . 'api/addresses';
-            $createShipmentUrl = $baseUrl . 'api/shipments';
-
             $order = $observer->getEvent()->getOrder();
-            $order->setMienvioCarriers($shippingId);
+            $Carriers = $shipping_id;
+            $order->setMienvioCarriers($Carriers);
             $orderId = $order->getId();
+            $apiKey = $this->_mienvioHelper->getMienvioApi();
             $orderData = $order->getData();
+
             $quoteId = $order->getQuoteId();
 
             if ($quoteId === null) {
@@ -59,20 +57,22 @@ class ObserverSuccess implements ObserverInterface
             }
 
             $quote = $this->quoteRepository->get($quoteId);
+
             $shippingAddress = $quote->getShippingAddress();
 
             if ($shippingAddress === null) {
                 return $this;
             }
 
-            $this->_logger->info("Shipping address", ["data" => $shippingAddress->getData()]);
-            $this->_logger->info("Order", ["order" => $order->getData()]);
+            $this->_logger->info("data", ["data" => $shippingAddress->getData()]);
+            $this->_logger->info("order", ["order" => $order->getData()]);
 
-            $customerName  = $shippingAddress->getName();
-            $customermail  = $shippingAddress->getEmail();
-            $customerPhone = $shippingAddress->getTelephone();
+            $customerName= $shippingAddress->getName();
+            $customermail= $shippingAddress->getEmail();
+            $customerPhone= $shippingAddress->getTelephone();
 
-
+            // Logic to create address
+            $addressUrl = $baseUrl . 'api/addresses';
             $this->_logger->info("cc", ["cc" => $shippingAddress->getCountryId()]);
 
             $fromData = $this->createAddressDataStr(
@@ -97,82 +97,112 @@ class ObserverSuccess implements ObserverInterface
             );
 
 
-            $this->_logger->info("Addresses data", ["toData" => $toData, "fromData" => $fromData]);
+            $this->_logger->info("obje", ["toData" => $toData,"fromData" => $fromData]);
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
 
-            $this->_curl->post($createAddressUrl, $fromData);
-            $addressFromResp = json_decode($this->_curl->getBody());
-            $addressFromId = $addressFromResp->{'address'}->{'object_id'};
+            $this->_curl->post($addressUrl, $fromData);
+            $responseFROM = $this->_curl->getBody();
+            $json_obj_from = json_decode($responseFROM);
+            $fromAddress = $json_obj_from->{'address'}->{'object_id'};
 
-            $this->_curl->post($createAddressUrl, $toData);
-            $addressToResp = json_decode($this->_curl->getBody());
-            $addressToId = $addressToResp->{'address'}->{'object_id'};
+            $this->_curl->post($addressUrl, $toData);
+            $responseTO = $this->_curl->getBody();
+            $json_obj_to = json_decode($responseTO);
+            $toAddress = $json_obj_to->{'address'}->{'object_id'};
 
-            $this->_logger->info("Addresses ids", ["to" => $addressToId,"from" => $addressFromId]);
+            $this->_logger->info("responses", ["to" => $toAddress,"from" => $fromAddress]);
 
             /* Measures */
-            $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllItems());
-            $packageWeight    = $this->convertWeight($orderData['weight']);
-            $packageVolWeight = $itemsMeasures['vol_weight'];
-            $orderLength = $itemsMeasures['length'];
-            $orderWidth  = $itemsMeasures['width'];
-            $orderHeight = $itemsMeasures['height'];
-            $orderDescription = $itemsMeasures['description'];
+            $realWeight = $this->convertWeight($orderData['weight']);
+            $items = $order->getAllItems();
+            $packageVolWeight = 0;
+
+            $orderLength = 0;
+            $orderWidth = 0;
+            $orderHeight = 0;
+            $orderDescription = '';
             $numberOfPackages = 1;
 
+            foreach ($items as $item) {
+                $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+                $productName = $item->getName();
+                $orderDescription .= $productName . ' ';
+                $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
+
+                $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
+                $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
+                $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
+                $weight = $this->convertWeight($product->getData('weight'));
+
+                $orderLength += $length;
+                $orderWidth  += $width;
+                $orderHeight += $height;
+
+                $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
+                $packageVolWeight += $volWeight;
+
+                $this->_logger->debug('product',
+                ['id' => $item->getId(), 'name' => $productName,
+                '$length' => $length, '$width' => $width,
+                '$height' => $height, '$weight' => $weight, '$volWeight' => $volWeight]);
+            }
+
             $packageVolWeight = ceil($packageVolWeight);
-            $orderWeight = $packageVolWeight > $packageWeight ? $packageVolWeight : $packageWeight;
+            $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
             $orderDescription = substr($orderDescription, 0, 30);
 
+            $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
+
             try {
-                $packages = $this->getAvailablePackages($getPackagesUrl, $options);
+                $packages = $this->getAvailablePackages($baseUrl, $options);
                 $packageCalculus = $this->calculateNeededPackage($orderWeight, $packageVolWeight, $packages);
                 $chosenPackage = $packageCalculus['package'];
                 $numberOfPackages = $packageCalculus['qty'];
 
                 $orderLength = $chosenPackage->{'length'};
-                $orderWidth  = $chosenPackage->{'width'};
+                $orderWidth = $chosenPackage->{'width'};
                 $orderHeight = $chosenPackage->{'height'};
             } catch (\Exception $e) {
                 $this->_logger->debug('Error when getting needed package', ['e' => $e]);
             }
 
             $this->_logger->debug('order info', [
-                'packageWeight' => $packageWeight,
-                'volWeight'     => $packageVolWeight,
-                'maxWeight'     => $orderWeight,
-                'package'       => $chosenPackage,
-                'description'   => $orderDescription,
-                'numberOfPackages' => $numberOfPackages
+                '$realWeight' => $realWeight,
+                '$volWeight' => $packageVolWeight,
+                '$maxWeight' => $orderWeight,
+                'package' => $chosenPackage,
+                'description' => $orderDescription,
+                '$numberOfPackages' => $numberOfPackages
             ]);
 
-            $shipmentReqData = [
-                'object_purpose' => 'PURCHASE',
-                'address_from' => $addressFromId,
-                'address_to' => $addressToId,
-                'weight' => $orderWeight,
-                'declared_value' => $packageValue,
-                'description' => $orderDescription,
-                'source_type' => 'api',
-                'length' => $orderLength,
-                'width' => $orderWidth,
-                'height' => $orderHeight,
-                'rate' => $shippingId,
-                'quantity' => $numberOfPackages,
-                'order' => [
-                    'marketplace' : 'magento',
-                    'object_id' : $orderData['quote_id']
-                ]
-            ];
+            $postData = '{
+                "object_purpose": "PURCHASE",
+                "address_from": ' . $fromAddress . ',
+                "address_to": ' . $toAddress . ',
+                "weight": ' . $orderWeight . ',
+                "declared_value": ' . $orderData['subtotal_incl_tax'] .',
+                "description" : "' . $orderDescription .'",
+                "source_type": "api",
+                "length" :' . $orderLength  . ',
+                "width": ' . $orderWidth . ',
+                "height": ' . $orderHeight . ',
+                "rate" :' . $shipping_id . ',
+                "quantity" :' . $numberOfPackages . ',
+                "order" : {
+                    "marketplace" : "magento",
+                    "object_id" : "' . $orderData['quote_id'] . '"
+                }
+            }';
 
-            $this->_logger->info('Shipment request', ["data" => $shipmentReqData]);
+            $this->_logger->info('orderObject', ["data" => $postData]);
 
-            $this->_curl->post($createShipmentUrl, $postData);
-            $shipmentResponse = json_decode($this->_curl->getBody());
+            $this->_curl->post($baseUrl . '/api/shipments', $postData);
+            $response = $this->_curl->getBody();
+            $json_obj = json_decode($response);
 
-            $this->_logger->info('Shipment response', ["data" => $shipmentResponse]);
+            $this->_logger->info('shipment PURCHASE', ["data" => $json_obj]);
         } catch (\Exception $e) {
             $this->_logger->info("error saving new shipping method Exception");
             $this->_logger->info($e->getMessage());
@@ -182,69 +212,19 @@ class ObserverSuccess implements ObserverInterface
     }
 
     /**
-     * Retrieves total measures of given items
-     *
-     * @param  Items $items
-     * @return
-     */
-    private function getOrderDefaultMeasures($items)
-    {
-        $packageVolWeight = 0;
-        $orderLength = 0;
-        $orderWidth  = 0;
-        $orderHeight = 0;
-        $orderDescription = '';
-
-        foreach ($items as $item) {
-            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-            $productName = $item->getName();
-            $orderDescription .= $productName . ' ';
-            $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
-
-            $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
-            $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
-            $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
-            $weight = $this->convertWeight($product->getData('weight'));
-
-            $orderLength += $length;
-            $orderWidth  += $width;
-            $orderHeight += $height;
-
-            $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
-            $packageVolWeight += $volWeight;
-
-            $this->_logger->debug('product',[
-                'id' => $item->getId(),
-                'name' => $productName,
-                'length' => $length,
-                'width' => $width,
-                'height' => $height,
-                'weight' => $weight,
-                'volWeight' => $volWeight
-            ]);
-        }
-
-        return [
-            'vol_weight'  => $packageVolWeight,
-            'length'      => $orderLength,
-            'width'       => $orderWidth,
-            'height'      => $orderHeight,
-            'description' => $orderDescription
-        ];
-    }
-
-    /**
      * Retrieve user packages
      *
      * @param  string $baseUrl
      * @return array
      */
-    private function getAvailablePackages($url, $options)
+    private function getAvailablePackages($baseUrl, $options)
     {
+        $url = $baseUrl . 'api/packages';
         $this->_curl->setOptions($options);
         $this->_curl->get($url);
-        $response = json_decode($this->_curl->getBody());
-        $packages = $response->{'results'};
+        $response = $this->_curl->getBody();
+        $json_obj = json_decode($response);
+        $packages = $json_obj->{'results'};
 
         $this->_logger->debug("packages", ["packages" => $packages]);
 
