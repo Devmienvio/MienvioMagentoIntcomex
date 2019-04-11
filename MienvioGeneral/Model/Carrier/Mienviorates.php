@@ -116,6 +116,10 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $rateResponse = $this->_rateResultFactory->create();
         $apiKey = $this->_mienvioHelper->getMienvioApi();
         $baseUrl =  $this->_mienvioHelper->getEnvironment();
+        $createShipmentUrl = $baseUrl . 'api/shipments';
+        $quoteShipmentUrl = $baseUrl . 'api/shipments/$shipmentId/rates';
+        $getPackagesUrl = $baseUrl . 'api/packages';
+
 
         try {
             /* Location data */
@@ -156,7 +160,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
 
             try {
-                $packages = $this->getAvailablePackages($baseUrl, $options);
+                $packages = $this->getAvailablePackages($getPackagesUrl, $options);
                 $packageCalculus = $this->calculateNeededPackage($orderWeight, $packageVolWeight, $packages);
                 $chosenPackage   = $packageCalculus['package'];
                 $numberOfPackages = $packageCalculus['qty'];
@@ -172,19 +176,15 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $fromZipCode = $request->getPostcode();
 
             $this->_logger->debug('order info', [
-                '$packageWeight' => $packageWeight,
-                '$volWeight' => $packageVolWeight,
-                '$maxWeight' => $orderWeight,
+                'packageWeight' => $packageWeight,
+                'volWeight' => $packageVolWeight,
+                'maxWeight' => $orderWeight,
                 'package' => $chosenPackage,
                 'description' => $orderDescription,
-                '$numberOfPackages' => $numberOfPackages
+                'numberOfPackages' => $numberOfPackages
             ]);
 
-            // Call Api to create rutes
-            $createShipmentUrl = $baseUrl . 'api/shipments';
-            $quoteShipmentUrl = $baseUrl . 'api/shipments/$shipmentId/rates';
-
-            $jsonPostData = [
+            $shipmentReqData = [
                 'object_purpose' => 'QUOTE',
                 'weight' => $orderWeight,
                 'declared_value' => $packageValue,
@@ -196,17 +196,17 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             ];
 
             if (in_array($destCountryId, self::LEVEL_1_COUNTRIES)) {
-                $jsonPostData['from_level1'] = $fromZipCode;
-                $jsonPostData['to_level1'] = $destPostcode;
+                $shipmentReqData['from_level1'] = $fromZipCode;
+                $shipmentReqData['to_level1'] = $destPostcode;
             } else {
-                $jsonPostData['zipcode_from'] = $fromZipCode;
-                $jsonPostData['zipcode_to'] = $destPostcode;
+                $shipmentReqData['zipcode_from'] = $fromZipCode;
+                $shipmentReqData['zipcode_to'] = $destPostcode;
             }
 
-            $this->_logger->debug("postdata", ["postdata" => $jsonPostData]);
+            $this->_logger->debug("postdata", ["postdata" => $shipmentReqData]);
 
             $this->_curl->setOptions($options);
-            $this->_curl->post($createShipmentUrl, json_encode($jsonPostData));
+            $this->_curl->post($createShipmentUrl, json_encode($shipmentReqData));
             $shipmentResponse = json_decode($this->_curl->getBody());
 
             $this->_logger->debug("Create shipment:", ["data" => $shipmentResponse]);
@@ -314,14 +314,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      * @param  string $baseUrl
      * @return array
      */
-    private function getAvailablePackages($baseUrl, $options)
+    private function getAvailablePackages($url, $options)
     {
-        $url = $baseUrl . 'api/packages';
         $this->_curl->setOptions($options);
         $this->_curl->get($url);
-        $response = $this->_curl->getBody();
-        $json_obj = json_decode($response);
-        $packages = $json_obj->{'results'};
+        $response = json_decode($this->_curl->getBody());
+        $packages = $response->{'results'};
 
         $this->_logger->debug("packages", ["packages" => $packages]);
 
@@ -338,6 +336,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     {
         $storeWeightUnit = $this->directoryHelper->getWeightUnit();
         $weight = 0;
+
         switch ($storeWeightUnit) {
             case 'lbs':
                 $weight = $_weigth * $this->lbs_kg;
