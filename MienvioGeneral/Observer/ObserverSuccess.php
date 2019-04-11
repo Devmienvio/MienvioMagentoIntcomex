@@ -46,6 +46,7 @@ class ObserverSuccess implements ObserverInterface
             $apiKey = $this->_mienvioHelper->getMienvioApi();
             $getPackagesUrl = $baseUrl . 'api/packages';
             $createAddressUrl = $baseUrl . 'api/addresses';
+            $createShipmentUrl = $baseUrl . 'api/shipments';
 
             $order = $observer->getEvent()->getOrder();
             $order->setMienvioCarriers($shipping_id);
@@ -64,7 +65,7 @@ class ObserverSuccess implements ObserverInterface
                 return $this;
             }
 
-            $this->_logger->info("data", ["data" => $shippingAddress->getData()]);
+            $this->_logger->info("Shipping address", ["data" => $shippingAddress->getData()]);
             $this->_logger->info("order", ["order" => $order->getData()]);
 
             $customerName= $shippingAddress->getName();
@@ -124,8 +125,6 @@ class ObserverSuccess implements ObserverInterface
             $orderWeight = $packageVolWeight > $packageWeight ? $packageVolWeight : $packageWeight;
             $orderDescription = substr($orderDescription, 0, 30);
 
-            $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
-
             try {
                 $packages = $this->getAvailablePackages($getPackagesUrl, $options);
                 $packageCalculus = $this->calculateNeededPackage($orderWeight, $packageVolWeight, $packages);
@@ -140,12 +139,12 @@ class ObserverSuccess implements ObserverInterface
             }
 
             $this->_logger->debug('order info', [
-                '$packageWeight' => $packageWeight,
-                '$volWeight' => $packageVolWeight,
-                '$maxWeight' => $orderWeight,
+                'packageWeight' => $packageWeight,
+                'volWeight' => $packageVolWeight,
+                'maxWeight' => $orderWeight,
                 'package' => $chosenPackage,
                 'description' => $orderDescription,
-                '$numberOfPackages' => $numberOfPackages
+                'numberOfPackages' => $numberOfPackages
             ]);
 
             $shipmentReqData = [
@@ -167,13 +166,12 @@ class ObserverSuccess implements ObserverInterface
                 ]
             ];
 
-            $this->_logger->info('orderObject', ["data" => $shipmentReqData]);
+            $this->_logger->info('Shipment request', ["data" => $shipmentReqData]);
 
-            $this->_curl->post($baseUrl . '/api/shipments', json_encode($shipmentReqData));
-            $response = $this->_curl->getBody();
-            $json_obj = json_decode($response);
+            $this->_curl->post($createShipmentUrl, json_encode($shipmentReqData));
+            $response = json_decode($this->_curl->getBody());
 
-            $this->_logger->info('shipment PURCHASE', ["data" => $json_obj]);
+            $this->_logger->info('Shipment response', ["data" => $response]);
         } catch (\Exception $e) {
             $this->_logger->info("error saving new shipping method Exception");
             $this->_logger->info($e->getMessage());
