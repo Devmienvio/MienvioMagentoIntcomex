@@ -163,12 +163,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             $toData = $this->createAddressDataStr(
                 'usuario temporal',
-                substr($destFullStreet, 30),
-                $fullAddressProcessed['suburb'],
+                substr($fullAddressProcessed['street'], 30),
+                substr($fullAddressProcessed['suburb'], 30),
                 $destPostcode,
                 "ventas@mienvio.mx",
                 "5551814040",
-                $fullAddressProcessed['suburb']
+                substr($fullAddressProcessed['suburb'], 30)
             );
 
             $this->_logger->info("Addresses data", ["to" => $toData, "from" => $fromData]);
