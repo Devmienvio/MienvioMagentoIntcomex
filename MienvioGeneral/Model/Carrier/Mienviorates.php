@@ -25,6 +25,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     private $directoryHelper;
 
+    const LEVEL_1_COUNTRIES = ['PE', 'CL'];
+
     public function __construct(
         ScopeConfigInterface $scopeConfig,
         ErrorFactory $rateErrorFactory,
@@ -179,7 +181,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             ]);
 
             // Call Api to create rutes
-            $url = $baseUrl . 'api/shipments';
+            $createShipmentUrl = $baseUrl . 'api/shipments';
+            $quoteShipmentUrl = $baseUrl . 'api/shipments/$shipmentId/rates';
 
             $jsonPostData = [
                 'object_purpose' => 'QUOTE',
@@ -192,87 +195,33 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 'height' => $orderHeight
             ];
 
-            if ($destCountryId === 'PE') {
+            if (in_array($destCountryId, self::LEVEL_1_COUNTRIES)) {
                 $jsonPostData['from_level1'] = $fromZipCode;
                 $jsonPostData['to_level1'] = $destPostcode;
-            }
-
-            if ($destCountryId === 'MX') {
+            } else {
                 $jsonPostData['zipcode_from'] = $fromZipCode;
                 $jsonPostData['zipcode_to'] = $destPostcode;
             }
 
-            /*$post_data = '{
-                 "object_purpose": "QUOTE",
-                 "weight": ' . $orderWeight . ',
-                 "declared_value": ' . $packageValue .',
-                 "description" : "' . $orderDescription .'",
-                 "source_type" : "api",
-                 "length" :' . $orderLength  . ',
-                 "width": ' . $orderWidth . ',
-                 "height": ' . $orderHeight . ',';
-
-            if ($destCountryId === 'PE') {
-                $post_data .= '"from_level1": "' . $fromZipCode . '",
-                              "to_level1": "' . $destPostcode . '",
-                              }';
-            }
-
-            if ($destCountryId === 'MX') {
-                $post_data .= '"zipcode_from": "' . $fromZipCode . '",
-                              "zipcode_to": "' . $destPostcode . '",
-                              }';
-            }
-*/
-
-/*            if ($destCountryId === 'PE') {
-                $post_data = '{
-                     "object_purpose": "QUOTE",
-                     "from_level1": "' . $fromZipCode . '",
-                     "to_level1": "' . $destPostcode . '",
-                     "weight": ' . $orderWeight . ',
-                     "declared_value": ' . $packageValue .',
-                     "description" : "' . $orderDescription .'",
-                     "source_type" : "api",
-                     "length" :' . $orderLength  . ',
-                     "width": ' . $orderWidth . ',
-                     "height": ' . $orderHeight . '
-                }';
-            } else {
-                $post_data = '{
-                     "object_purpose": "QUOTE",
-                     "zipcode_from": ' . $fromZipCode . ',
-                     "zipcode_to": ' . $destPostcode . ',
-                     "weight": ' . $orderWeight . ',
-                     "declared_value": ' . $packageValue .',
-                     "description" : "' . $orderDescription .'",
-                     "source_type" : "api",
-                     "length" :' . $orderLength  . ',
-                     "width": ' . $orderWidth . ',
-                     "height": ' . $orderHeight . '
-                }';
-            }
-*/
             $this->_logger->debug("postdata", ["postdata" => $jsonPostData]);
 
             $this->_curl->setOptions($options);
-            $this->_curl->post($url, json_encode($jsonPostData));
-            $response = $this->_curl->getBody();
-            $json_obj = json_decode($response);
+            $this->_curl->post($createShipmentUrl, json_encode($jsonPostData));
+            $shipmentResponse = json_decode($this->_curl->getBody());
 
-            $this->_logger->debug("response", ["data" => $json_obj]);
+            $this->_logger->debug("Create shipment:", ["data" => $shipmentResponse]);
 
-            $shipmentId = $json_obj->{'shipment'}->{'object_id'};
-            $this->_curl->get($url . '/'.$shipmentId. '/rates?limit=1000000');
-            $responseRates = $this->_curl->getBody();
-            $json_obj_rates = json_decode($responseRates);
-            $totalCount = $json_obj_rates->{'total_count'};
-            $this->_logger->debug("rates", ["rates" => $json_obj_rates]);
+            $shipmentId = $shipmentResponse->{'shipment'}->{'object_id'};
+
+            $quoteShipmentUrl = str_replace('$shipmentId' , $shipmentId, $quoteShipmentUrl);
+            $this->_curl->get($quoteShipmentUrl);
+            $ratesResponse = json_decode($this->_curl->getBody());
+
+            $totalCount = $ratesResponse->{'total_count'};
+            $this->_logger->debug("Retrieved Rates:", ["rates" => $ratesResponse]);
 
             if ($totalCount > 0 ) {
-                $rates_obj =  $json_obj_rates->{'results'};
-
-                foreach ($rates_obj as $rate) {
+                foreach ($ratesResponse->{'results'} as $rate) {
                     if (is_object($rate)) {
                         $method = $this->_rateMethodFactory->create();
                         $method->setCarrier($this->getCarrierCode());
