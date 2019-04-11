@@ -145,7 +145,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 'destFullStreet' => $destFullStreet,
                 'destStreet'    => $fullAddressProcessed['street'],
                 'destSuburb'    => $fullAddressProcessed['suburb'],
-                'destCity'      => $destCity
+                'destCity'      => $destCity,
                 'originStreet' => $this->_mienvioHelper->getOriginStreet(),
                 'originStreet2' => $this->_mienvioHelper->getOriginStreet2(),
                 'originZipcode' => $this->_mienvioHelper->getOriginZipCode()
