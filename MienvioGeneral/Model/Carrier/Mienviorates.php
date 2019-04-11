@@ -61,6 +61,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         ];
     }
 
+    /**
+     * Checks if mienvio's configuration is ready
+     *
+     * @return boolean
+     */
     private function checkIfMienvioEnvIsSet()
     {
         $isActive = $this->_mienvioHelper->isMienvioActive();
@@ -141,6 +146,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 'destStreet'    => $fullAddressProcessed['street'],
                 'destSuburb'    => $fullAddressProcessed['suburb'],
                 'destCity'      => $destCity
+                'originStreet' => $this->_mienvioHelper->getOriginStreet(),
+                'originStreet2' => $this->_mienvioHelper->getOriginStreet2(),
+                'originZipcode' => $this->_mienvioHelper->getOriginZipCode()
             ]);
 
 
