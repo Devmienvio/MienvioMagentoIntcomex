@@ -158,7 +158,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $this->_mienvioHelper->getOriginStreet2(),
                 $this->_mienvioHelper->getOriginZipCode(),
                 "ventas@mienvio.mx",
-                "5551814040"
+                "5551814040",
+                '',
+                $destCountryId
             );
 
             $toData = $this->createAddressDataStr(
@@ -168,7 +170,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $destPostcode,
                 "ventas@mienvio.mx",
                 "5551814040",
-                substr($fullAddressProcessed['suburb'], 0, 30)
+                substr($fullAddressProcessed['suburb'], 0, 30),
+                $destCountryId
             );
 
             $this->_logger->info("Addresses data", ["to" => $toData, "from" => $fromData]);
@@ -176,11 +179,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
 
-            $this->_curl->post($createAddressUrl, $fromData);
+            $this->_curl->post($createAddressUrl, json_encode($fromData));
             $addressFromResp = json_decode($this->_curl->getBody());
             $addressFromId = $addressFromResp->{'address'}->{'object_id'};
 
-            $this->_curl->post($createAddressUrl, $toData);
+            $this->_curl->post($createAddressUrl, json_encode($toData));
             $addressToResp = json_decode($this->_curl->getBody());
             $addressToId = $addressToResp->{'address'}->{'object_id'};
 
@@ -285,26 +288,42 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      * @param  string $email
      * @param  string $phone
      * @param  string $reference
+     * @param  string $countryCode
      * @return string
      */
-    private function createAddressDataStr($name, $street, $street2, $zipcode, $email, $phone, $reference = '.')
+    private function createAddressDataStr($name, $street, $street2, $zipcode, $email, $phone, $reference = '.', $countryCode)
     {
         $street = substr($street, 0, 35);
         $street2 = substr($street2, 0, 35);
         $name = substr($name, 0, 80);
         $phone = substr($phone, 0, 20);
 
-        $data = '{
+        $data = [
+            'object_type' => 'PURCHASE',
+            'name' => $name,
+            'street' => $street,
+            'street2' => $street2,
+            'email' => $email,
+            'phone' => $phone,
+            'reference' => $reference
+        ];
+
+        if ($countryCode === 'MX') {
+            $data['zipcode'] = $zipcode;
+        } else {
+            $data['level_1'] = $zipcode;
+        }
+
+        /*$data = '{
             "object_type": "PURCHASE",
             "name": "'. $name . '",
             "street": "'. $street . '",
             "street2": "'. $street2 . '",
             "level_1": "'. $zipcode . '",
-            "country": "PE",
             "email": "'. $email .'",
             "phone": "'. $phone .'",
             "reference": "'. $reference .'"
-            }';
+        }';*/
 
         $this->_logger->info("createAddressDataStr", ["data" => $data]);
         return $data;

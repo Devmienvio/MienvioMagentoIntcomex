@@ -71,6 +71,7 @@ class ObserverSuccess implements ObserverInterface
             $customerName= $shippingAddress->getName();
             $customermail= $shippingAddress->getEmail();
             $customerPhone= $shippingAddress->getTelephone();
+            $countryId = $shippingAddress->getCountryId();
 
             $this->_logger->info("cc", ["cc" => $shippingAddress->getCountryId()]);
 
@@ -80,7 +81,9 @@ class ObserverSuccess implements ObserverInterface
                 $this->_mienvioHelper->getOriginStreet2(),
                 $this->_mienvioHelper->getOriginZipCode(),
                 "ventas@mienvio.mx",
-                "5551814040"
+                "5551814040",
+                '',
+                $countryId
             );
 
             $toStreet2 = empty($shippingAddress->getStreetLine(2)) ? $shippingAddress->getStreetLine(1) : $shippingAddress->getStreetLine(2);
@@ -92,7 +95,8 @@ class ObserverSuccess implements ObserverInterface
                 $shippingAddress->getPostcode(),
                 $customermail,
                 $customerPhone,
-                $shippingAddress->getStreetLine(3)
+                $shippingAddress->getStreetLine(3),
+                $countryId
             );
 
 
@@ -355,26 +359,41 @@ class ObserverSuccess implements ObserverInterface
      * @param  string $email
      * @param  string $phone
      * @param  string $reference
+     * @param  string $countryCode
      * @return string
      */
-    private function createAddressDataStr($name, $street, $street2, $zipcode, $email, $phone, $reference = '.')
+    private function createAddressDataStr($name, $street, $street2, $zipcode, $email, $phone, $reference = '.', $countryCode)
     {
         $street = substr($street, 0, 35);
         $street2 = substr($street2, 0, 35);
         $name = substr($name, 0, 80);
         $phone = substr($phone, 0, 20);
+        $data = [
+            'object_type' => 'PURCHASE',
+            'name' => $name,
+            'street' => $street,
+            'street2' => $street2,
+            'email' => $email,
+            'phone' => $phone,
+            'reference' => $reference
+        ];
 
-        $data = '{
+        if ($countryCode === 'MX') {
+            $data['zipcode'] = $zipcode;
+        } else {
+            $data['level_1'] = $zipcode;
+        }
+
+        /*$data = '{
             "object_type": "PURCHASE",
             "name": "'. $name . '",
             "street": "'. $street . '",
             "street2": "'. $street2 . '",
             "level_1": "'. $zipcode . '",
-            "country": "PE",
             "email": "'. $email .'",
             "phone": "'. $phone .'",
             "reference": "'. $reference .'"
-            }';
+        }';*/
 
         $this->_logger->info("createAddressDataStr", ["data" => $data]);
         return $data;
