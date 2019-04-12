@@ -105,11 +105,11 @@ class ObserverSuccess implements ObserverInterface
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
 
-            $this->_curl->post($createAddressUrl, $fromData);
+            $this->_curl->post($createAddressUrl, json_encode($fromData));
             $addressFromResp = json_decode($this->_curl->getBody());
             $addressFromId = $addressFromResp->{'address'}->{'object_id'};
 
-            $this->_curl->post($createAddressUrl, $toData);
+            $this->_curl->post($createAddressUrl, json_encode($toData));
             $addressToResp = json_decode($this->_curl->getBody());
             $addressToId = $addressToResp->{'address'}->{'object_id'};
 
