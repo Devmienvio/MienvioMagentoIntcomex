@@ -215,8 +215,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $method->setCarrierTitle($rate['courier']);
                 $method->setMethod($rate['servicelevel']);
                 $method->setMethodTitle($rate['id']);
-                $method->setPrice($rate['cost'] * $numberOfPackages);
-                $method->setCost($rate['cost'] * $numberOfPackages);
+                $method->setPrice($rate['cost']);
+                $method->setCost($rate['cost']);
                 $rateResponse->append($method);
             }
         } catch (\Exception $e) {
