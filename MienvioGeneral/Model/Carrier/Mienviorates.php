@@ -420,6 +420,19 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 'qty' => $item->getQty(),
                 'declared_value' => $item->getprice(),
             ];
+            $this->_logger->info("quoteResponse",
+            ["d" => $quoteResponse,
+            'request' => [
+                'id' => $item->getId(),
+                'name' => $productName,
+                'length' => $length,
+                'width' => $width,
+                'height' => $height,
+                'weight' => $weight,
+                'volWeight' => $volWeight,
+                'qty' => $item->getQty(),
+                'declared_value' => $item->getprice(),
+            ]]);
 
             $this->_logger->debug('product',[
                 'id' => $item->getId(),
