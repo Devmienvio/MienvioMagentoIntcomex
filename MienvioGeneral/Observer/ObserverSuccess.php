@@ -14,6 +14,12 @@ class ObserverSuccess implements ObserverInterface
     private $quoteRepository;
     const XML_PATH_Street_store = 'shipping/origin/street_line2';
 
+    /**
+     * Defines if quote endpoint will be used at rates
+     * @var boolean
+     */
+    const IS_QUOTE_ENDPOINT_ACTIVE = true;
+
     public function __construct(
         CollectionFactory $collectionFactory,
         QuoteRepository $quoteRepository,
@@ -37,6 +43,10 @@ class ObserverSuccess implements ObserverInterface
         $shipping_id = $shippingMethodObject->getMethod();
 
         if ($shippingMethodObject->getCarrierCode() != $this->_code) {
+            return $this;
+        }
+
+        if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
             return $this;
         }
 
