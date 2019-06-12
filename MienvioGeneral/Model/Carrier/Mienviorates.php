@@ -27,6 +27,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
     const LEVEL_1_COUNTRIES = ['PE', 'CL'];
 
+    /**
+     * Defines if quote endpoint will be used at rates
+     * @var boolean
+     */
+    const IS_QUOTE_ENDPOINT_ACTIVE = true;
+
     public function __construct(
         ScopeConfigInterface $scopeConfig,
         ErrorFactory $rateErrorFactory,
@@ -121,36 +127,23 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $rateResponse = $this->_rateResultFactory->create();
         $apiKey = $this->_mienvioHelper->getMienvioApi();
         $baseUrl =  $this->_mienvioHelper->getEnvironment();
-        $createShipmentUrl = $baseUrl . 'api/shipments';
-        $quoteShipmentUrl = $baseUrl . 'api/shipments/$shipmentId/rates';
-        $getPackagesUrl = $baseUrl . 'api/packages';
-        $createAddressUrl = $baseUrl . 'api/addresses';
+        $createShipmentUrl  = $baseUrl . 'api/shipments';
+        $quoteShipmentUrl   = $baseUrl . 'api/shipments/$shipmentId/rates';
+        $getPackagesUrl     = $baseUrl . 'api/packages';
+        $createAddressUrl   = $baseUrl . 'api/addresses';
+        $createQuoteUrl     = $baseUrl . 'api/quotes';
 
 
         try {
             /* ADDRESS CREATION */
-            $destCountryId = $request->getDestCountryId();
-            $destCountry = $request->getDestCountry();
-            $destRegion = $request->getDestRegionId();
+            $destCountryId  = $request->getDestCountryId();
+            $destCountry    = $request->getDestCountry();
+            $destRegion     = $request->getDestRegionId();
             $destRegionCode = $request->getDestRegionCode();
             $destFullStreet = $request->getDestStreet();
             $fullAddressProcessed = $this->processFullAddress($destFullStreet);
-            $destCity = $request->getDestCity();
-            $destPostcode = $request->getDestPostcode();
-
-            $this->_logger->debug('Shop address info', [
-                'destCountryId' => $destCountryId,
-                'destCountry'   => $destCountry,
-                'destRegion'    => $destRegion,
-                'destRegionCode' => $destRegionCode,
-                'destFullStreet' => $destFullStreet,
-                'destStreet'    => $fullAddressProcessed['street'],
-                'destSuburb'    => $fullAddressProcessed['suburb'],
-                'destCity'      => $destCity,
-                'originStreet' => $this->_mienvioHelper->getOriginStreet(),
-                'originStreet2' => $this->_mienvioHelper->getOriginStreet2(),
-                'originZipcode' => $this->_mienvioHelper->getOriginZipCode()
-            ]);
+            $destCity       = $request->getDestCity();
+            $destPostcode   = $request->getDestPostcode();
 
             $fromData = $this->createAddressDataStr(
                 "MIENVIO DE MEXICO",
@@ -174,8 +167,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $destCountryId
             );
 
-            $this->_logger->info("Addresses data", ["to" => $toData, "from" => $fromData]);
-
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
 
@@ -187,94 +178,171 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $addressToResp = json_decode($this->_curl->getBody());
             $addressToId = $addressToResp->{'address'}->{'object_id'};
 
-            $this->_logger->info("responses", ["to" => $addressToId, "from" => $addressFromId]);
-
             $itemsMeasures = $this->getOrderDefaultMeasures($request->getAllItems());
             $packageWeight = $this->convertWeight($request->getPackageWeight());
-            $packageVolWeight = $itemsMeasures['vol_weight'];
-            $orderLength = $itemsMeasures['length'];
-            $orderWidth  = $itemsMeasures['width'];
-            $orderHeight = $itemsMeasures['height'];
-            $orderDescription = $itemsMeasures['description'];
-            $numberOfPackages = 1;
 
-            $packageVolWeight = ceil($packageVolWeight);
-            $orderWeight = $packageVolWeight > $packageWeight ? $packageVolWeight : $packageWeight;
-            $orderDescription = substr($orderDescription, 0, 30);
-
-            try {
-                $packages = $this->getAvailablePackages($getPackagesUrl, $options);
-                $packageCalculus = $this->calculateNeededPackage($orderWeight, $packageVolWeight, $packages);
-                $chosenPackage   = $packageCalculus['package'];
-                $numberOfPackages = $packageCalculus['qty'];
-
-                $orderLength = $chosenPackage->{'length'};
-                $orderWidth  = $chosenPackage->{'width'};
-                $orderHeight = $chosenPackage->{'height'};
-            } catch (\Exception $e) {
-                $this->_logger->debug('Error when getting needed package', ['e' => $e]);
+            if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
+                $rates = $this->quoteShipmentViaQuoteEndpoint(
+                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl
+                );
+            } else {
+                $rates = $this->quoteShipment(
+                    $itemsMeasures, $packageWeight, $getPackagesUrl,
+                    $createShipmentUrl, $options, $packageValue, $fromZipCode);
             }
 
-            $packageValue = $request->getPackageValue();
-            $fromZipCode = $request->getPostcode();
-
-            $this->_logger->debug('order info', [
-                'packageWeight' => $packageWeight,
-                'volWeight' => $packageVolWeight,
-                'maxWeight' => $orderWeight,
-                'package' => $chosenPackage,
-                'description' => $orderDescription,
-                'numberOfPackages' => $numberOfPackages
-            ]);
-
-            $shipmentReqData = [
-                'object_purpose' => 'QUOTE',
-                'address_from' => $addressFromId,
-                'address_to' => $addressToId,
-                'weight' => $orderWeight,
-                'declared_value' => $packageValue,
-                'description' => $orderDescription,
-                'source_type' => 'api',
-                'length' => $orderLength,
-                'width' => $orderWidth,
-                'height' => $orderHeight
-            ];
-
-            $this->_logger->debug("postdata", ["postdata" => $shipmentReqData]);
-
-            $this->_curl->setOptions($options);
-            $this->_curl->post($createShipmentUrl, json_encode($shipmentReqData));
-            $shipmentResponse = json_decode($this->_curl->getBody());
-
-            $this->_logger->debug("Create shipment:", ["data" => $shipmentResponse]);
-
-            $shipmentId = $shipmentResponse->{'shipment'}->{'object_id'};
-
-            $quoteShipmentUrl = str_replace('$shipmentId' , $shipmentId, $quoteShipmentUrl);
-            $this->_curl->get($quoteShipmentUrl);
-            $ratesResponse = json_decode($this->_curl->getBody());
-
-            $totalCount = $ratesResponse->{'total_count'};
-            $this->_logger->debug("Retrieved Rates:", ["rates" => $ratesResponse]);
-
-            if ($totalCount > 0 ) {
-                foreach ($ratesResponse->{'results'} as $rate) {
-                    if (is_object($rate)) {
-                        $method = $this->_rateMethodFactory->create();
-                        $method->setCarrier($this->getCarrierCode());
-                        $method->setCarrierTitle($rate->{'provider'});
-                        $method->setMethod($rate->{'object_id'});
-                        $method->setMethodTitle($rate->{'servicelevel'});
-                        $method->setPrice($rate->{'amount'} * $numberOfPackages);
-                        $method->setCost($rate->{'amount'} * $numberOfPackages);
-                        $rateResponse->append($method);
-                    }
-                }
+            foreach ($rates as $rate) {
+                $method = $this->_rateMethodFactory->create();
+                $method->setCarrier($this->getCarrierCode());
+                $method->setCarrierTitle($rate['courier']);
+                $method->setMethod($rate['servicelevel']);
+                $method->setMethodTitle($rate['id']);
+                $method->setPrice($rate['cost']);
+                $method->setCost($rate['cost']);
+                $rateResponse->append($method);
             }
         } catch (\Exception $e) {
             $this->_logger->debug("Rates Exception");
             $this->_logger->debug($e);
         }
+        return $rateResponse;
+    }
+
+    /**
+     * Quotes shipment using the quote endpoint
+     *
+     * @param  array $items
+     * @param  integer $addressFromId
+     * @param  integer $addressToId
+     * @param  string $createQuoteUrl
+     * @return string
+     */
+    private function quoteShipmentViaQuoteEndpoint($items, $addressFromId, $addressToId, $createQuoteUrl)
+    {
+        $quoteReqData = [
+            'items'         => $items,
+            'address_from'  => $addressFromId,
+            'address_to'    => $addressToId
+        ];
+
+        $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
+        $quoteResponse = json_decode($this->_curl->getBody());
+
+        return [[
+            'courier'      => $quoteResponse->{'courier'},
+            'servicelevel' => $quoteResponse->{'servicelevel'},
+            'id'           => $quoteResponse->{'quote_id'},
+            'cost'         => $quoteResponse->{'cost'}
+        ]];
+    }
+
+    /**
+     * Quotes shipment using given data
+     *
+     * @param  array $itemsMeasures
+     * @param  float $packageWeight
+     * @param  string $getPackagesUrl
+     * @param  string $createShipmentUrl
+     * @param  array $options
+     * @param  float $packageValue
+     * @param  string $fromZipCode
+     * @return array
+     */
+    private function quoteShipment(
+        $itemsMeasures, $packageWeight, $getPackagesUrl,
+        $createShipmentUrl, $options, $packageValue, $fromZipCode)
+    {
+        $packageVolWeight = $itemsMeasures['vol_weight'];
+        $orderLength      = $itemsMeasures['length'];
+        $orderWidth       = $itemsMeasures['width'];
+        $orderHeight      = $itemsMeasures['height'];
+        $orderDescription = $itemsMeasures['description'];
+        $numberOfPackages = 1;
+
+        $packageVolWeight = ceil($packageVolWeight);
+        $orderWeight      = $packageVolWeight > $packageWeight ? $packageVolWeight : $packageWeight;
+        $orderDescription = substr($orderDescription, 0, 30);
+
+        try {
+            $packages = $this->getAvailablePackages($getPackagesUrl, $options);
+            $packageCalculus = $this->calculateNeededPackage($orderWeight, $packageVolWeight, $packages);
+            $chosenPackage   = $packageCalculus['package'];
+            $numberOfPackages = $packageCalculus['qty'];
+
+            $orderLength = $chosenPackage->{'length'};
+            $orderWidth  = $chosenPackage->{'width'};
+            $orderHeight = $chosenPackage->{'height'};
+        } catch (\Exception $e) {
+            $this->_logger->debug('Error when getting needed package', ['e' => $e]);
+        }
+
+        $this->_logger->debug('Order info', [
+            'packageWeight' => $packageWeight,
+            'volWeight'     => $packageVolWeight,
+            'maxWeight'     => $orderWeight,
+            'package'       => $chosenPackage,
+            'description'   => $orderDescription,
+            'numberOfPackages' => $numberOfPackages
+        ]);
+
+        $shipmentReqData = [
+            'object_purpose' => 'QUOTE',
+            'address_from'   => $addressFromId,
+            'address_to'     => $addressToId,
+            'weight'         => $orderWeight,
+            'declared_value' => $packageValue,
+            'description'    => $orderDescription,
+            'source_type'    => 'api',
+            'length'         => $orderLength,
+            'width'          => $orderWidth,
+            'height'         => $orderHeight
+        ];
+
+        $this->_curl->setOptions($options);
+        $this->_curl->post($createShipmentUrl, json_encode($shipmentReqData));
+        $shipmentResponse = json_decode($this->_curl->getBody());
+
+        $shipmentId = $shipmentResponse->{'shipment'}->{'object_id'};
+
+        $quoteShipmentUrl = str_replace('$shipmentId' , $shipmentId, $quoteShipmentUrl);
+        $this->_curl->get($quoteShipmentUrl);
+        $ratesResponse = json_decode($this->_curl->getBody());
+        $responseArr = [];
+
+        foreach ($ratesResponse->{'results'} as $rate) {
+            if (is_object($rate)) {
+                $responseArr[] = [
+                    'courier'      => $rate->{'provider'},
+                    'servicelevel' => $rate->{'servicelevel'},
+                    'id'           => $rate->{'object_id'},
+                    'cost'         => $rate->{'amount'}
+                ];
+            }
+        }
+
+        return $responseArr;
+    }
+
+    private function createQuoteFromItems($createQuoteUrl, $items, $addressFromId, $addressToId)
+    {
+        $quoteReqData = [
+            'items' => $items,
+            'address_from' => $addressFromId,
+            'address_to' => $addressToId
+        ];
+
+        $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
+        $quoteResponse = json_decode($this->_curl->getBody());
+
+        $method = $this->_rateMethodFactory->create();
+        $method->setCarrier($this->getCarrierCode());
+        $method->setCarrierTitle($quoteResponse->{'courier'});
+        $method->setMethodTitle($quoteResponse->{'servicelevel'});
+        $method->setMethod($quoteResponse->{'quote_id'});
+        $method->setPrice($rate->{'cost'});
+        $method->setCost($rate->{'cost'});
+        $rateResponse->append($method);
+
         return $rateResponse;
     }
 
@@ -314,18 +382,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $data['level_1'] = $zipcode;
         }
 
-        /*$data = '{
-            "object_type": "PURCHASE",
-            "name": "'. $name . '",
-            "street": "'. $street . '",
-            "street2": "'. $street2 . '",
-            "level_1": "'. $zipcode . '",
-            "email": "'. $email .'",
-            "phone": "'. $phone .'",
-            "reference": "'. $reference .'"
-        }';*/
-
-        $this->_logger->info("createAddressDataStr", ["data" => $data]);
         return $data;
     }
 
@@ -342,6 +398,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $orderWidth = 0;
         $orderHeight = 0;
         $orderDescription = '';
+        $itemsArr = [];
 
         foreach ($items as $item) {
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
@@ -360,16 +417,17 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
             $packageVolWeight += $volWeight;
-
-            $this->_logger->debug('product',[
+            $itemsArr[] = [
                 'id' => $item->getId(),
                 'name' => $productName,
                 'length' => $length,
                 'width' => $width,
                 'height' => $height,
                 'weight' => $weight,
-                'volWeight' => $volWeight
-            ]);
+                'volWeight' => $volWeight,
+                'qty' => $item->getQty(),
+                'declared_value' => $item->getprice(),
+            ];
         }
 
         return [
@@ -377,7 +435,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             'length'      => $orderLength,
             'width'       => $orderWidth,
             'height'      => $orderHeight,
-            'description' => $orderDescription
+            'description' => $orderDescription,
+            'items'       => $itemsArr
         ];
     }
 
@@ -408,8 +467,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $this->_curl->get($url);
         $response = json_decode($this->_curl->getBody());
         $packages = $response->{'results'};
-
-        $this->_logger->debug("packages", ["packages" => $packages]);
 
         return $packages;
     }
