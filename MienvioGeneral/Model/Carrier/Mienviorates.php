@@ -74,8 +74,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     private function checkIfMienvioEnvIsSet()
     {
-        $isActive = $this->_mienvioHelper->isMienvioActive();
-        $apiKey = $this->_mienvioHelper->getMienvioApi();
+        $isActive  = $this->_mienvioHelper->isMienvioActive();
+        $apiKey    = $this->_mienvioHelper->getMienvioApi();
         $apiSource = $this->getConfigData('apikey');
 
         if (!$isActive) {
@@ -125,13 +125,15 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     public function collectRates(RateRequest $request)
     {
         $rateResponse = $this->_rateResultFactory->create();
-        $apiKey = $this->_mienvioHelper->getMienvioApi();
-        $baseUrl =  $this->_mienvioHelper->getEnvironment();
-        $createShipmentUrl = $baseUrl . 'api/shipments';
-        $quoteShipmentUrl = $baseUrl . 'api/shipments/$shipmentId/rates';
-        $getPackagesUrl = $baseUrl . 'api/packages';
-        $createAddressUrl = $baseUrl . 'api/addresses';
-        $createQuoteUrl = $baseUrl . 'api/quotes';
+        $apiKey       = $this->_mienvioHelper->getMienvioApi();
+        $baseUrl      = $this->_mienvioHelper->getEnvironment() . 'api/';
+        $endpoints = [
+            'createShipment' = $baseUrl . 'shipments';
+            'quoteShipment'  = $baseUrl . 'shipments/$shipmentId/rates';
+            'getPackage'     = $baseUrl . 'packages';
+            'createAddress'  = $baseUrl . 'addresses';
+            'createQuote'    = $baseUrl . 'quotes';
+        ];
 
 
         try {
@@ -186,11 +188,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
 
-            $this->_curl->post($createAddressUrl, json_encode($fromData));
+            $this->_curl->post($endpoints['createAddress'], json_encode($fromData));
             $addressFromResp = json_decode($this->_curl->getBody());
             $addressFromId = $addressFromResp->{'address'}->{'object_id'};
 
-            $this->_curl->post($createAddressUrl, json_encode($toData));
+            $this->_curl->post($endpoints['createAddress'], json_encode($toData));
             $addressToResp = json_decode($this->_curl->getBody());
             $addressToId = $addressToResp->{'address'}->{'object_id'};
 
@@ -201,12 +203,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
                 $rates = $this->quoteShipmentViaQuoteEndpoint(
-                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl
+                    $itemsMeasures['items'], $addressFromId, $addressToId, $endpoints['createQuote']
                 );
             } else {
                 $rates = $this->quoteShipment(
-                    $itemsMeasures, $packageWeight, $getPackagesUrl,
-                    $createShipmentUrl, $options, $packageValue, $fromZipCode);
+                    $itemsMeasures, $packageWeight, $endpoints['quoteShipment'],
+                    $endpoints, $options, $packageValue, $fromZipCode);
             }
 
             foreach ($rates as $rate) {
@@ -260,7 +262,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      * @param  array $itemsMeasures
      * @param  float $packageWeight
      * @param  string $getPackagesUrl
-     * @param  string $createShipmentUrl
+     * @param  string $endpoints
      * @param  array $options
      * @param  float $packageValue
      * @param  string $fromZipCode
@@ -268,7 +270,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     private function quoteShipment(
         $itemsMeasures, $packageWeight, $getPackagesUrl,
-        $createShipmentUrl, $options, $packageValue, $fromZipCode)
+        $endpoints, $options, $packageValue, $fromZipCode)
     {
         $packageVolWeight = $itemsMeasures['vol_weight'];
         $orderLength      = $itemsMeasures['length'];
@@ -317,12 +319,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         ];
 
         $this->_curl->setOptions($options);
-        $this->_curl->post($createShipmentUrl, json_encode($shipmentReqData));
+        $this->_curl->post($endpoints['createShipment'], json_encode($shipmentReqData));
         $shipmentResponse = json_decode($this->_curl->getBody());
 
         $shipmentId = $shipmentResponse->{'shipment'}->{'object_id'};
 
-        $quoteShipmentUrl = str_replace('$shipmentId' , $shipmentId, $quoteShipmentUrl);
+        $quoteShipmentUrl = str_replace('$shipmentId' , $shipmentId, $endpoints['quoteShipment']);
         $this->_curl->get($quoteShipmentUrl);
         $ratesResponse = json_decode($this->_curl->getBody());
         $responseArr = [];
@@ -339,29 +341,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         }
 
         return $responseArr;
-    }
-
-    private function createQuoteFromItems($createQuoteUrl, $items, $addressFromId, $addressToId)
-    {
-        $quoteReqData = [
-            'items' => $items,
-            'address_from' => $addressFromId,
-            'address_to' => $addressToId
-        ];
-
-        $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
-        $quoteResponse = json_decode($this->_curl->getBody());
-
-        $method = $this->_rateMethodFactory->create();
-        $method->setCarrier($this->getCarrierCode());
-        $method->setCarrierTitle($quoteResponse->{'courier'});
-        $method->setMethodTitle($quoteResponse->{'servicelevel'});
-        $method->setMethod($quoteResponse->{'quote_id'});
-        $method->setPrice($rate->{'cost'});
-        $method->setCost($rate->{'cost'});
-        $rateResponse->append($method);
-
-        return $rateResponse;
     }
 
     /**
