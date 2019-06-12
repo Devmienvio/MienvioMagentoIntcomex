@@ -390,8 +390,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $orderWidth = 0;
         $orderHeight = 0;
         $orderDescription = '';
-        $items = [];
-        $this->_logger->info("getOrderDefaultMeasures",["items" => '']);
+        $itemsArr = [];
 
         foreach ($items as $item) {
             $this->_logger->info("foreach",["key" => '']);
@@ -411,7 +410,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
             $packageVolWeight += $volWeight;
-            $items[] = [
+            $itemsArr[] = [
                 'id' => $item->getId(),
                 'name' => $productName,
                 'length' => $length,
@@ -435,16 +434,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 'qty' => $item->getQty(),
                 'declared_value' => $item->getprice(),
             ]]);
-
-            $this->_logger->debug('product',[
-                'id' => $item->getId(),
-                'name' => $productName,
-                'length' => $length,
-                'width' => $width,
-                'height' => $height,
-                'weight' => $weight,
-                'volWeight' => $volWeight
-            ]);
         }
 
         return [
@@ -453,7 +442,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             'width'       => $orderWidth,
             'height'      => $orderHeight,
             'description' => $orderDescription,
-            'items' => $items
+            'items' => $itemsArr
         ];
     }
 
