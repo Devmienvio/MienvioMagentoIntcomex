@@ -127,37 +127,23 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $rateResponse = $this->_rateResultFactory->create();
         $apiKey = $this->_mienvioHelper->getMienvioApi();
         $baseUrl =  $this->_mienvioHelper->getEnvironment();
-        $createShipmentUrl = $baseUrl . 'api/shipments';
-        $quoteShipmentUrl = $baseUrl . 'api/shipments/$shipmentId/rates';
-        $getPackagesUrl = $baseUrl . 'api/packages';
-        $createAddressUrl = $baseUrl . 'api/addresses';
-        $createQuoteUrl = $baseUrl . 'api/quotes';
+        $createShipmentUrl  = $baseUrl . 'api/shipments';
+        $quoteShipmentUrl   = $baseUrl . 'api/shipments/$shipmentId/rates';
+        $getPackagesUrl     = $baseUrl . 'api/packages';
+        $createAddressUrl   = $baseUrl . 'api/addresses';
+        $createQuoteUrl     = $baseUrl . 'api/quotes';
 
 
         try {
             /* ADDRESS CREATION */
-            $destCountryId = $request->getDestCountryId();
-            $destCountry = $request->getDestCountry();
-            $destRegion = $request->getDestRegionId();
+            $destCountryId  = $request->getDestCountryId();
+            $destCountry    = $request->getDestCountry();
+            $destRegion     = $request->getDestRegionId();
             $destRegionCode = $request->getDestRegionCode();
             $destFullStreet = $request->getDestStreet();
             $fullAddressProcessed = $this->processFullAddress($destFullStreet);
-            $destCity = $request->getDestCity();
-            $destPostcode = $request->getDestPostcode();
-
-            $this->_logger->debug('Shop address info', [
-                'destCountryId' => $destCountryId,
-                'destCountry'   => $destCountry,
-                'destRegion'    => $destRegion,
-                'destRegionCode' => $destRegionCode,
-                'destFullStreet' => $destFullStreet,
-                'destStreet'    => $fullAddressProcessed['street'],
-                'destSuburb'    => $fullAddressProcessed['suburb'],
-                'destCity'      => $destCity,
-                'originStreet' => $this->_mienvioHelper->getOriginStreet(),
-                'originStreet2' => $this->_mienvioHelper->getOriginStreet2(),
-                'originZipcode' => $this->_mienvioHelper->getOriginZipCode()
-            ]);
+            $destCity       = $request->getDestCity();
+            $destPostcode   = $request->getDestPostcode();
 
             $fromData = $this->createAddressDataStr(
                 "MIENVIO DE MEXICO",
@@ -181,8 +167,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $destCountryId
             );
 
-            $this->_logger->info("Addresses data", ["to" => $toData, "from" => $fromData]);
-
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
 
@@ -193,8 +177,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $this->_curl->post($createAddressUrl, json_encode($toData));
             $addressToResp = json_decode($this->_curl->getBody());
             $addressToId = $addressToResp->{'address'}->{'object_id'};
-
-            $this->_logger->info("responses", ["to" => $addressToId, "from" => $addressFromId]);
 
             $itemsMeasures = $this->getOrderDefaultMeasures($request->getAllItems());
             $packageWeight = $this->convertWeight($request->getPackageWeight());
@@ -400,18 +382,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $data['level_1'] = $zipcode;
         }
 
-        /*$data = '{
-            "object_type": "PURCHASE",
-            "name": "'. $name . '",
-            "street": "'. $street . '",
-            "street2": "'. $street2 . '",
-            "level_1": "'. $zipcode . '",
-            "email": "'. $email .'",
-            "phone": "'. $phone .'",
-            "reference": "'. $reference .'"
-        }';*/
-
-        $this->_logger->info("createAddressDataStr", ["data" => $data]);
         return $data;
     }
 
@@ -431,7 +401,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $itemsArr = [];
 
         foreach ($items as $item) {
-            $this->_logger->info("foreach",["key" => '']);
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
             $productName = $item->getName();
             $orderDescription .= $productName . ' ';
@@ -459,18 +428,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 'qty' => $item->getQty(),
                 'declared_value' => $item->getprice(),
             ];
-            $this->_logger->info("DEBUGGER",[
-                'request' => [
-                    'id' => $item->getId(),
-                    'name' => $productName,
-                    'length' => $length,
-                    'width' => $width,
-                    'height' => $height,
-                    'weight' => $weight,
-                    'volWeight' => $volWeight,
-                    'qty' => $item->getQty(),
-                    'declared_value' => $item->getprice(),
-            ]]);
         }
 
         return [
@@ -479,7 +436,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             'width'       => $orderWidth,
             'height'      => $orderHeight,
             'description' => $orderDescription,
-            'items' => $itemsArr
+            'items'       => $itemsArr
         ];
     }
 
@@ -510,8 +467,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $this->_curl->get($url);
         $response = json_decode($this->_curl->getBody());
         $packages = $response->{'results'};
-
-        $this->_logger->debug("packages", ["packages" => $packages]);
 
         return $packages;
     }
