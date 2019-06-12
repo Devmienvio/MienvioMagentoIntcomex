@@ -125,6 +125,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $quoteShipmentUrl = $baseUrl . 'api/shipments/$shipmentId/rates';
         $getPackagesUrl = $baseUrl . 'api/packages';
         $createAddressUrl = $baseUrl . 'api/addresses';
+        $createQuoteUrl = $baseUrl . 'api/quotes';
 
 
         try {
@@ -191,6 +192,29 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             $itemsMeasures = $this->getOrderDefaultMeasures($request->getAllItems());
             $packageWeight = $this->convertWeight($request->getPackageWeight());
+
+            /* QUOTE LOGIC */
+            $quoteReqData = [
+                'items' => $itemsMeasures['items'],
+                'address_from' => $addressFromId,
+                'address_to' => $addressToId
+            ];
+
+            $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
+            $quoteResponse = json_decode($this->_curl->getBody());
+
+            $method = $this->_rateMethodFactory->create();
+            $method->setCarrier($this->getCarrierCode());
+            $method->setCarrierTitle($quoteResponse->{'courier'});
+            $method->setMethodTitle($quoteResponse->{'servicelevel'});
+            $method->setMethod($quoteResponse->{'quote_id'});
+            $method->setPrice($rate->{'cost'});
+            $method->setCost($rate->{'cost'});
+            $rateResponse->append($method);
+
+            return $rateResponse;
+            /* END QUOTE LOGIC */
+
             $packageVolWeight = $itemsMeasures['vol_weight'];
             $orderLength = $itemsMeasures['length'];
             $orderWidth  = $itemsMeasures['width'];
@@ -278,6 +302,29 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         return $rateResponse;
     }
 
+    private function createQuoteFromItems($createQuoteUrl, $items, $addressFromId, $addressToId)
+    {
+        $quoteReqData = [
+            'items' => $items,
+            'address_from' => $addressFromId,
+            'address_to' => $addressToId
+        ];
+
+        $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
+        $quoteResponse = json_decode($this->_curl->getBody());
+
+        $method = $this->_rateMethodFactory->create();
+        $method->setCarrier($this->getCarrierCode());
+        $method->setCarrierTitle($quoteResponse->{'courier'});
+        $method->setMethodTitle($quoteResponse->{'servicelevel'});
+        $method->setMethod($quoteResponse->{'quote_id'});
+        $method->setPrice($rate->{'cost'});
+        $method->setCost($rate->{'cost'});
+        $rateResponse->append($method);
+
+        return $rateResponse;
+    }
+
     /**
      * Creates an string with the address data
      *
@@ -342,6 +389,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $orderWidth = 0;
         $orderHeight = 0;
         $orderDescription = '';
+        $items = [];
 
         foreach ($items as $item) {
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
@@ -360,6 +408,17 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
             $packageVolWeight += $volWeight;
+            $items[] = [
+                'id' => $item->getId(),
+                'name' => $productName,
+                'length' => $length,
+                'width' => $width,
+                'height' => $height,
+                'weight' => $weight,
+                'volWeight' => $volWeight,
+                'qty' => $item->getQty(),
+                'declared_value' => $item->getprice(),
+            ];
 
             $this->_logger->debug('product',[
                 'id' => $item->getId(),
@@ -377,7 +436,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             'length'      => $orderLength,
             'width'       => $orderWidth,
             'height'      => $orderHeight,
-            'description' => $orderDescription
+            'description' => $orderDescription,
+            'items' => $items
         ];
     }
 
