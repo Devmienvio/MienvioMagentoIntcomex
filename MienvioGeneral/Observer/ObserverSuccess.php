@@ -43,13 +43,15 @@ class ObserverSuccess implements ObserverInterface
         // Logic to save orders in mienvio api
         try {
             $baseUrl =  $this->_mienvioHelper->getEnvironment();
-            $order = $observer->getEvent()->getOrder();
-            $Carriers = $shipping_id;
-            $order->setMienvioCarriers($Carriers);
-            $orderId = $order->getId();
             $apiKey = $this->_mienvioHelper->getMienvioApi();
-            $orderData = $order->getData();
+            $getPackagesUrl = $baseUrl . 'api/packages';
+            $createAddressUrl = $baseUrl . 'api/addresses';
+            $createShipmentUrl = $baseUrl . 'api/shipments';
 
+            $order = $observer->getEvent()->getOrder();
+            $order->setMienvioCarriers($shipping_id);
+            $orderId = $order->getId();
+            $orderData = $order->getData();
             $quoteId = $order->getQuoteId();
 
             if ($quoteId === null) {
@@ -57,22 +59,20 @@ class ObserverSuccess implements ObserverInterface
             }
 
             $quote = $this->quoteRepository->get($quoteId);
-
             $shippingAddress = $quote->getShippingAddress();
 
             if ($shippingAddress === null) {
                 return $this;
             }
 
-            $this->_logger->info("data", ["data" => $shippingAddress->getData()]);
+            $this->_logger->info("Shipping address", ["data" => $shippingAddress->getData()]);
             $this->_logger->info("order", ["order" => $order->getData()]);
 
             $customerName= $shippingAddress->getName();
             $customermail= $shippingAddress->getEmail();
             $customerPhone= $shippingAddress->getTelephone();
+            $countryId = $shippingAddress->getCountryId();
 
-            // Logic to create address
-            $addressUrl = $baseUrl . 'api/addresses';
             $this->_logger->info("cc", ["cc" => $shippingAddress->getCountryId()]);
 
             $fromData = $this->createAddressDataStr(
@@ -81,7 +81,9 @@ class ObserverSuccess implements ObserverInterface
                 $this->_mienvioHelper->getOriginStreet2(),
                 $this->_mienvioHelper->getOriginZipCode(),
                 "ventas@mienvio.mx",
-                "5551814040"
+                "5551814040",
+                '',
+                $countryId
             );
 
             $toStreet2 = empty($shippingAddress->getStreetLine(2)) ? $shippingAddress->getStreetLine(1) : $shippingAddress->getStreetLine(2);
@@ -93,70 +95,42 @@ class ObserverSuccess implements ObserverInterface
                 $shippingAddress->getPostcode(),
                 $customermail,
                 $customerPhone,
-                $shippingAddress->getStreetLine(3)
+                $shippingAddress->getStreetLine(3),
+                $countryId
             );
 
 
-            $this->_logger->info("obje", ["toData" => $toData,"fromData" => $fromData]);
+            $this->_logger->info("Addresses data", ["to" => $toData, "from" => $fromData]);
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
 
-            $this->_curl->post($addressUrl, $fromData);
-            $responseFROM = $this->_curl->getBody();
-            $json_obj_from = json_decode($responseFROM);
-            $fromAddress = $json_obj_from->{'address'}->{'object_id'};
+            $this->_curl->post($createAddressUrl, json_encode($fromData));
+            $addressFromResp = json_decode($this->_curl->getBody());
+            $addressFromId = $addressFromResp->{'address'}->{'object_id'};
 
-            $this->_curl->post($addressUrl, $toData);
-            $responseTO = $this->_curl->getBody();
-            $json_obj_to = json_decode($responseTO);
-            $toAddress = $json_obj_to->{'address'}->{'object_id'};
+            $this->_curl->post($createAddressUrl, json_encode($toData));
+            $addressToResp = json_decode($this->_curl->getBody());
+            $addressToId = $addressToResp->{'address'}->{'object_id'};
 
-            $this->_logger->info("responses", ["to" => $toAddress,"from" => $fromAddress]);
+            $this->_logger->info("responses", ["to" => $addressToId, "from" => $addressFromId]);
 
             /* Measures */
-            $realWeight = $this->convertWeight($orderData['weight']);
-            $items = $order->getAllItems();
-            $packageVolWeight = 0;
-
-            $orderLength = 0;
-            $orderWidth = 0;
-            $orderHeight = 0;
-            $orderDescription = '';
+            $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllItems());
+            $packageWeight = $this->convertWeight($orderData['weight']);
+            $packageVolWeight = $itemsMeasures['vol_weight'];
+            $orderLength = $itemsMeasures['length'];
+            $orderWidth  = $itemsMeasures['width'];
+            $orderHeight = $itemsMeasures['height'];
+            $orderDescription = $itemsMeasures['description'];
             $numberOfPackages = 1;
 
-            foreach ($items as $item) {
-                $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-                $productName = $item->getName();
-                $orderDescription .= $productName . ' ';
-                $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
-
-                $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
-                $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
-                $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
-                $weight = $this->convertWeight($product->getData('weight'));
-
-                $orderLength += $length;
-                $orderWidth  += $width;
-                $orderHeight += $height;
-
-                $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
-                $packageVolWeight += $volWeight;
-
-                $this->_logger->debug('product',
-                ['id' => $item->getId(), 'name' => $productName,
-                '$length' => $length, '$width' => $width,
-                '$height' => $height, '$weight' => $weight, '$volWeight' => $volWeight]);
-            }
-
             $packageVolWeight = ceil($packageVolWeight);
-            $orderWeight = $packageVolWeight > $realWeight ? $packageVolWeight : $realWeight;
+            $orderWeight = $packageVolWeight > $packageWeight ? $packageVolWeight : $packageWeight;
             $orderDescription = substr($orderDescription, 0, 30);
 
-            $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
-
             try {
-                $packages = $this->getAvailablePackages($baseUrl, $options);
+                $packages = $this->getAvailablePackages($getPackagesUrl, $options);
                 $packageCalculus = $this->calculateNeededPackage($orderWeight, $packageVolWeight, $packages);
                 $chosenPackage = $packageCalculus['package'];
                 $numberOfPackages = $packageCalculus['qty'];
@@ -169,40 +143,39 @@ class ObserverSuccess implements ObserverInterface
             }
 
             $this->_logger->debug('order info', [
-                '$realWeight' => $realWeight,
-                '$volWeight' => $packageVolWeight,
-                '$maxWeight' => $orderWeight,
+                'packageWeight' => $packageWeight,
+                'volWeight' => $packageVolWeight,
+                'maxWeight' => $orderWeight,
                 'package' => $chosenPackage,
                 'description' => $orderDescription,
-                '$numberOfPackages' => $numberOfPackages
+                'numberOfPackages' => $numberOfPackages
             ]);
 
-            $postData = '{
-                "object_purpose": "PURCHASE",
-                "address_from": ' . $fromAddress . ',
-                "address_to": ' . $toAddress . ',
-                "weight": ' . $orderWeight . ',
-                "declared_value": ' . $orderData['subtotal_incl_tax'] .',
-                "description" : "' . $orderDescription .'",
-                "source_type": "api",
-                "length" :' . $orderLength  . ',
-                "width": ' . $orderWidth . ',
-                "height": ' . $orderHeight . ',
-                "rate" :' . $shipping_id . ',
-                "quantity" :' . $numberOfPackages . ',
-                "order" : {
-                    "marketplace" : "magento",
-                    "object_id" : "' . $orderData['quote_id'] . '"
-                }
-            }';
+            $shipmentReqData = [
+                'object_purpose' => 'PURCHASE',
+                'address_from' => $addressFromId,
+                'address_to' => $addressToId,
+                'weight' => $orderWeight,
+                'declared_value' => $orderData['subtotal_incl_tax'],
+                'description' => $orderDescription,
+                'source_type' => 'api',
+                'length' => $orderLength,
+                'width' => $orderWidth,
+                'height' => $orderHeight,
+                'rate' => $shipping_id,
+                'quantity' => $numberOfPackages,
+                'order' => [
+                    'marketplace' => 'magento',
+                    'object_id' => $orderData['quote_id']
+                ]
+            ];
 
-            $this->_logger->info('orderObject', ["data" => $postData]);
+            $this->_logger->info('Shipment request', ["data" => $shipmentReqData]);
 
-            $this->_curl->post($baseUrl . '/api/shipments', $postData);
-            $response = $this->_curl->getBody();
-            $json_obj = json_decode($response);
+            $this->_curl->post($createShipmentUrl, json_encode($shipmentReqData));
+            $response = json_decode($this->_curl->getBody());
 
-            $this->_logger->info('shipment PURCHASE', ["data" => $json_obj]);
+            $this->_logger->info('Shipment response', ["data" => $response]);
         } catch (\Exception $e) {
             $this->_logger->info("error saving new shipping method Exception");
             $this->_logger->info($e->getMessage());
@@ -212,19 +185,69 @@ class ObserverSuccess implements ObserverInterface
     }
 
     /**
+     * Retrieves total measures of given items
+     *
+     * @param  Items $items
+     * @return
+     */
+    private function getOrderDefaultMeasures($items)
+    {
+        $packageVolWeight = 0;
+        $orderLength = 0;
+        $orderWidth = 0;
+        $orderHeight = 0;
+        $orderDescription = '';
+
+        foreach ($items as $item) {
+            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+            $productName = $item->getName();
+            $orderDescription .= $productName . ' ';
+            $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
+
+            $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
+            $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
+            $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
+            $weight = $this->convertWeight($product->getData('weight'));
+
+            $orderLength += $length;
+            $orderWidth  += $width;
+            $orderHeight += $height;
+
+            $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
+            $packageVolWeight += $volWeight;
+
+            $this->_logger->debug('product',[
+                'id' => $item->getId(),
+                'name' => $productName,
+                'length' => $length,
+                'width' => $width,
+                'height' => $height,
+                'weight' => $weight,
+                'volWeight' => $volWeight
+            ]);
+        }
+
+        return [
+            'vol_weight'  => $packageVolWeight,
+            'length'      => $orderLength,
+            'width'       => $orderWidth,
+            'height'      => $orderHeight,
+            'description' => $orderDescription
+        ];
+    }
+
+    /**
      * Retrieve user packages
      *
      * @param  string $baseUrl
      * @return array
      */
-    private function getAvailablePackages($baseUrl, $options)
+    private function getAvailablePackages($url, $options)
     {
-        $url = $baseUrl . 'api/packages';
         $this->_curl->setOptions($options);
         $this->_curl->get($url);
-        $response = $this->_curl->getBody();
-        $json_obj = json_decode($response);
-        $packages = $json_obj->{'results'};
+        $response = json_decode($this->_curl->getBody());
+        $packages = $response->{'results'};
 
         $this->_logger->debug("packages", ["packages" => $packages]);
 
@@ -336,26 +359,41 @@ class ObserverSuccess implements ObserverInterface
      * @param  string $email
      * @param  string $phone
      * @param  string $reference
+     * @param  string $countryCode
      * @return string
      */
-    private function createAddressDataStr($name, $street, $street2, $zipcode, $email, $phone, $reference = '.')
+    private function createAddressDataStr($name, $street, $street2, $zipcode, $email, $phone, $reference = '.', $countryCode)
     {
         $street = substr($street, 0, 35);
         $street2 = substr($street2, 0, 35);
         $name = substr($name, 0, 80);
         $phone = substr($phone, 0, 20);
+        $data = [
+            'object_type' => 'PURCHASE',
+            'name' => $name,
+            'street' => $street,
+            'street2' => $street2,
+            'email' => $email,
+            'phone' => $phone,
+            'reference' => $reference
+        ];
 
-        $data = '{
+        if ($countryCode === 'MX') {
+            $data['zipcode'] = $zipcode;
+        } else {
+            $data['level_1'] = $zipcode;
+        }
+
+        /*$data = '{
             "object_type": "PURCHASE",
             "name": "'. $name . '",
             "street": "'. $street . '",
             "street2": "'. $street2 . '",
             "level_1": "'. $zipcode . '",
-            "country": "PE",
             "email": "'. $email .'",
             "phone": "'. $phone .'",
             "reference": "'. $reference .'"
-            }';
+        }';*/
 
         $this->_logger->info("createAddressDataStr", ["data" => $data]);
         return $data;
