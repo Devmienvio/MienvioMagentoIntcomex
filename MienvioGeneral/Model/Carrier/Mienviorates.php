@@ -391,8 +391,10 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $orderHeight = 0;
         $orderDescription = '';
         $items = [];
+        $this->_logger->info("getOrderDefaultMeasures",["items" => '']);
 
-        foreach ($items as $item) {
+        foreach ($items as $key => $item) {
+            $this->_logger->info("foreach",["key" => $key]);
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
             $productName = $item->getName();
             $orderDescription .= $productName . ' ';
