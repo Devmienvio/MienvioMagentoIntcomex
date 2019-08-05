@@ -96,8 +96,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     private function processFullAddress($fullStreet)
     {
         $response = [
-            'street' => '',
-            'suburb' => ''
+            'street' => '.',
+            'suburb' => '.'
         ];
 
         if ($fullStreet != null && $fullStreet != "") {
@@ -222,11 +222,27 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $quoteReqData = [
             'items'         => $items,
             'address_from'  => $addressFromId,
-            'address_to'    => $addressToId
+            'address_to'    => $addressToId,
+            'retrieve_all_rates' => true
         ];
 
         $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
         $quoteResponse = json_decode($this->_curl->getBody());
+
+        if (isset($quoteResponse->{'rates'})) {
+            $rates = [];
+
+            foreach ($quoteResponse->{'rates'} as $rate) {
+                $rates[] = [
+                    'courier'      => $rate['provider'],
+                    'servicelevel' => $rate['servicelevel'],
+                    'id'           => $quoteResponse->{'quote_id'},
+                    'cost'         => $rate['amount']
+                ]
+            }
+
+            return $rates;
+        }
 
         return [[
             'courier'      => $quoteResponse->{'courier'},
