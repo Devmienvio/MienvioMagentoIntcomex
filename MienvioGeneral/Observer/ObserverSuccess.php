@@ -37,6 +37,7 @@ class ObserverSuccess implements ObserverInterface
 
     public function execute(Observer $observer)
     {
+        $this->_logger->info("execute");
         /** @var \Magento\Sales\Model\Order $order */
         $order = $observer->getData('order');
         $shippingMethodObject = $order->getShippingMethod(true);
@@ -47,6 +48,8 @@ class ObserverSuccess implements ObserverInterface
         }
 
         if (!self::IS_QUOTE_ENDPOINT_ACTIVE) {
+            // $shippingInfo = explode("-", $shipping_id);
+            // $this->updateQuote($shippingInfo[0], $shippingInfo[1], );
             return $this;
         }
 
@@ -59,6 +62,7 @@ class ObserverSuccess implements ObserverInterface
             $createShipmentUrl = $baseUrl . 'api/shipments';
 
             $order = $observer->getEvent()->getOrder();
+            $this->_logger->info("setMienvioCarriers");
             $order->setMienvioCarriers($shipping_id);
             $orderId = $order->getId();
             $orderData = $order->getData();
