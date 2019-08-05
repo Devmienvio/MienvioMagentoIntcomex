@@ -221,6 +221,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     private function quoteShipmentViaQuoteEndpoint($items, $addressFromId, $addressToId, $createQuoteUrl)
     {
+        $this->_logger->debug("quoteShipmentViaQuoteEndpoint");
         $quoteReqData = [
             'items'         => $items,
             'address_from'  => $addressFromId,
@@ -230,6 +231,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
         $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
         $quoteResponse = json_decode($this->_curl->getBody());
+        $this->_logger->debug($this->_curl->getBody());
 
         if (isset($quoteResponse->{'rates'})) {
             $rates = [];
