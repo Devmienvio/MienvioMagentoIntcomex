@@ -194,10 +194,13 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             }
 
             foreach ($rates as $rate) {
+                $this->_logger->debug('rate_id');
+                $this->_logger->debug($rate['servicelevel'] . '-' . $rate['courier'] . '-' . (string)$rate['id']);
+
                 $method = $this->_rateMethodFactory->create();
                 $method->setCarrier($this->getCarrierCode());
                 $method->setCarrierTitle($rate['courier']);
-                $method->setMethod($rate['servicelevel'] . '-' . $rate['courier'] . '-' . '123');
+                $method->setMethod($rate['servicelevel'] . '-' . $rate['courier'] . '-' . (string)$rate['id']);
                 $method->setMethodTitle($rate['servicelevel']);
                 $method->setPrice($rate['cost']);
                 $method->setCost($rate['cost']);
