@@ -198,7 +198,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $method->setCarrier($this->getCarrierCode());
                 $method->setCarrierTitle($rate['courier']);
                 $method->setMethod($rate['servicelevel']);
-                $method->setMethodTitle($rate['id']);
+                $method->setMethodTitle($rate['servicelevel']);
                 $method->setPrice($rate['cost']);
                 $method->setCost($rate['cost']);
                 $rateResponse->append($method);
@@ -221,7 +221,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     private function quoteShipmentViaQuoteEndpoint($items, $addressFromId, $addressToId, $createQuoteUrl)
     {
-        $this->_logger->debug("quoteShipmentViaQuoteEndpoint");
         $quoteReqData = [
             'items'         => $items,
             'address_from'  => $addressFromId,
@@ -234,16 +233,15 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $this->_logger->debug($this->_curl->getBody());
 
         if (isset($quoteResponse->{'rates'})) {
-            $this->_logger->debug("rates is set");
             $rates = [];
 
             foreach ($quoteResponse->{'rates'} as $rate) {
-                $this->_logger->debug("rate - ");
                 $rates[] = [
                     'courier'      => $rate->{'provider'},
                     'servicelevel' => $rate->{'servicelevel'},
                     'id'           => $quoteResponse->{'quote_id'},
-                    'cost'         => $rate->{'amount'}
+                    'cost'         => $rate->{'amount'},
+                    'key'          => $rate->{'provider'} . '-' . $rate->{'servicelevel'}
                 ];
             }
 
