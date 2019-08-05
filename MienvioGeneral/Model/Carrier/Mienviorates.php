@@ -238,7 +238,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                     'servicelevel' => $rate['servicelevel'],
                     'id'           => $quoteResponse->{'quote_id'},
                     'cost'         => $rate['amount']
-                ]
+                ];
             }
 
             return $rates;
