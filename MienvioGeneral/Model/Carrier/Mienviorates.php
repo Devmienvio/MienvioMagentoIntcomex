@@ -240,10 +240,10 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             foreach ($quoteResponse->{'rates'} as $rate) {
                 $this->_logger->debug("rate - ");
                 $rates[] = [
-                    'courier'      => $rate{'provider'},
-                    'servicelevel' => $rate{'servicelevel'},
+                    'courier'      => $rate->{'provider'},
+                    'servicelevel' => $rate->{'servicelevel'},
                     'id'           => $quoteResponse->{'quote_id'},
-                    'cost'         => $rate{'amount'}
+                    'cost'         => $rate->{'amount'}
                 ];
             }
 
