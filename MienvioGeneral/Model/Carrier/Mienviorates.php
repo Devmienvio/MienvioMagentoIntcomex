@@ -172,10 +172,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             $this->_curl->post($createAddressUrl, json_encode($fromData));
             $addressFromResp = json_decode($this->_curl->getBody());
+            $this->_logger->debug($addressFromResp);
             $addressFromId = $addressFromResp->{'address'}->{'object_id'};
 
             $this->_curl->post($createAddressUrl, json_encode($toData));
             $addressToResp = json_decode($this->_curl->getBody());
+            $this->_logger->debug($addressToResp);
             $addressToId = $addressToResp->{'address'}->{'object_id'};
 
             $itemsMeasures = $this->getOrderDefaultMeasures($request->getAllItems());
