@@ -238,6 +238,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $rates = [];
 
             foreach ($quoteResponse->{'rates'} as $rate) {
+                $this->_logger->debug("rate - ");
+                $this->_logger->debug($rate);
                 $rates[] = [
                     'courier'      => $rate['provider'],
                     'servicelevel' => $rate['servicelevel'],
