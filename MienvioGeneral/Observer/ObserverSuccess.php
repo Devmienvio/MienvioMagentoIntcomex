@@ -46,7 +46,7 @@ class ObserverSuccess implements ObserverInterface
             return $this;
         }
 
-        if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
+        if (!self::IS_QUOTE_ENDPOINT_ACTIVE) {
             return $this;
         }
 
@@ -77,6 +77,8 @@ class ObserverSuccess implements ObserverInterface
 
             $this->_logger->info("Shipping address", ["data" => $shippingAddress->getData()]);
             $this->_logger->info("order", ["order" => $order->getData()]);
+            $this->_logger->info("quoteId", ["order" => $quoteId]);
+            $this->_logger->info("quoteId", ["order" => $shipping_id]);
 
             $customerName= $shippingAddress->getName();
             $customermail= $shippingAddress->getEmail();
