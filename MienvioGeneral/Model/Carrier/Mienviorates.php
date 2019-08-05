@@ -195,7 +195,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             foreach ($rates as $rate) {
                 $this->_logger->debug('rate_id');
-                $methodId = strval($rate['id']) . '-' . $rate['servicelevel'] . '-' . $rate['courier'];
+                $methodId = strval($rate['id']) .  $rate['servicelevel'] . $rate['courier'];
                 $this->_logger->debug((string)$methodId);
                 $this->_logger->debug(strval($rate['id']));
 
@@ -213,6 +213,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $this->_logger->debug("Rates Exception");
             $this->_logger->debug($e);
         }
+
         return $rateResponse;
     }
 
