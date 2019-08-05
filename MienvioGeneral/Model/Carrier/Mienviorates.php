@@ -234,6 +234,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $this->_logger->debug($this->_curl->getBody());
 
         if (isset($quoteResponse->{'rates'})) {
+            $this->_logger->debug("rates is set");
             $rates = [];
 
             foreach ($quoteResponse->{'rates'} as $rate) {
@@ -245,6 +246,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 ];
             }
 
+            $this->_logger->debug($rates);
             return $rates;
         }
 
