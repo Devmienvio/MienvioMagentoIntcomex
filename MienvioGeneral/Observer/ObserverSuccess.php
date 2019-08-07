@@ -254,6 +254,7 @@ class ObserverSuccess implements ObserverInterface
         $orderWidth = 0;
         $orderHeight = 0;
         $orderDescription = '';
+        $itemsArr = [];
 
         foreach ($items as $item) {
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
