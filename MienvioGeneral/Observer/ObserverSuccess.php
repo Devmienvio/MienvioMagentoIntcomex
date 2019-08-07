@@ -137,7 +137,7 @@ class ObserverSuccess implements ObserverInterface
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
                 $this->createQuoteFromItems(
-                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl, $chosenServicelevel, $chosenProvider
+                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl, $chosenServicelevel, $chosenProvider, $quoteId
                 );
 
                 return $this;
@@ -218,6 +218,7 @@ class ObserverSuccess implements ObserverInterface
      * @param  string $createQuoteUrl
      * @param  string $servicelevel
      * @param  string $provider
+     * @param  string $orderId
      * @return string
      */
     private function createQuoteFromItems($items, $addressFromId, $addressToId, $createQuoteUrl, $servicelevel, $provider)
@@ -228,7 +229,8 @@ class ObserverSuccess implements ObserverInterface
             'address_to'    => $addressToId,
             'servicelevel'  => $servicelevel,
             'provider'      => $provider,
-            'object_purpose' => 'PURCHASE'
+            'object_purpose' => 'PURCHASE',
+            'order_id'      => 'order_id'
         ];
 
         $this->_logger->debug('Quote request', ['data' => json_encode($quoteReqData)]);
