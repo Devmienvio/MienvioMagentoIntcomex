@@ -283,7 +283,7 @@ class ObserverSuccess implements ObserverInterface
                 'height' => $height,
                 'weight' => $weight,
                 'volWeight' => $volWeight,
-                'qty' => $item->getQty(),
+                'qty' => $item->getQtyordered(),
                 'declared_value' => $item->getprice(),
             ];
         }
