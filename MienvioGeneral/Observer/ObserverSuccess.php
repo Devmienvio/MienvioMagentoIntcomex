@@ -249,6 +249,7 @@ class ObserverSuccess implements ObserverInterface
      */
     private function getOrderDefaultMeasures($items)
     {
+        $this->_logger->debug('Items', ['data' => $items]);
         $packageVolWeight = 0;
         $orderLength = 0;
         $orderWidth = 0;
@@ -273,7 +274,7 @@ class ObserverSuccess implements ObserverInterface
 
             $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
             $packageVolWeight += $volWeight;
-
+            
             $itemsArr[] = [
                 'id' => $item->getId(),
                 'name' => $productName,
