@@ -221,7 +221,7 @@ class ObserverSuccess implements ObserverInterface
      * @param  string $orderId
      * @return string
      */
-    private function createQuoteFromItems($items, $addressFromId, $addressToId, $createQuoteUrl, $servicelevel, $provider)
+    private function createQuoteFromItems($items, $addressFromId, $addressToId, $createQuoteUrl, $servicelevel, $provider, $orderId)
     {
         $quoteReqData = [
             'items'         => $items,
