@@ -273,15 +273,17 @@ class ObserverSuccess implements ObserverInterface
             $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
             $packageVolWeight += $volWeight;
 
-            $this->_logger->debug('product',[
+            $itemsArr[] = [
                 'id' => $item->getId(),
                 'name' => $productName,
                 'length' => $length,
                 'width' => $width,
                 'height' => $height,
                 'weight' => $weight,
-                'volWeight' => $volWeight
-            ]);
+                'volWeight' => $volWeight,
+                'qty' => $item->getQty(),
+                'declared_value' => $item->getprice(),
+            ];
         }
 
         return [
@@ -289,7 +291,8 @@ class ObserverSuccess implements ObserverInterface
             'length'      => $orderLength,
             'width'       => $orderWidth,
             'height'      => $orderHeight,
-            'description' => $orderDescription
+            'description' => $orderDescription,
+            'items'       => $itemsArr
         ];
     }
 
