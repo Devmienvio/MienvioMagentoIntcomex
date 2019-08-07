@@ -76,6 +76,7 @@ class ObserverSuccess implements ObserverInterface
 
             $quote = $this->quoteRepository->get($quoteId);
             $shippingAddress = $quote->getShippingAddress();
+            $countryId = $shippingAddress->getCountryId();
 
             if ($shippingAddress === null) {
                 return $this;
