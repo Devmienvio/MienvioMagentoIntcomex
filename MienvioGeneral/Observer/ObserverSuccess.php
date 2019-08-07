@@ -133,7 +133,7 @@ class ObserverSuccess implements ObserverInterface
             $this->_logger->info("responses", ["to" => $addressToId, "from" => $addressFromId]);
 
             /* Measures */
-            $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllItems());
+            $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllVisibleItems());
             $packageWeight = $this->convertWeight($orderData['weight']);
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
@@ -274,7 +274,7 @@ class ObserverSuccess implements ObserverInterface
 
             $volWeight = $this->calculateVolumetricWeight($length, $width, $height);
             $packageVolWeight += $volWeight;
-            
+
             $itemsArr[] = [
                 'id' => $item->getId(),
                 'name' => $productName,
