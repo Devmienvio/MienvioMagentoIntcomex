@@ -228,10 +228,10 @@ class ObserverSuccess implements ObserverInterface
             'servicelevel'  => $servicelevel,
             'provider'      => $provider
         ];
-
+        $this->_logger->debug('Quote request', ['data' => json_encode($quoteReqData)]);
         $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
         $quoteResponse = json_decode($this->_curl->getBody());
-        $this->_logger->debug($this->_curl->getBody());
+        $this->_logger->debug('Quote response', ['data' => $this->_curl->getBody()]);
 
         return [[
             'courier'      => $quoteResponse->{'courier'},
