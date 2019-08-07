@@ -276,7 +276,7 @@ class ObserverSuccess implements ObserverInterface
             $packageVolWeight += $volWeight;
 
             $itemsArr[] = [
-                'id' => $item->getId(),
+                'id' => $item->getSku(),
                 'name' => $productName,
                 'length' => $length,
                 'width' => $width,
