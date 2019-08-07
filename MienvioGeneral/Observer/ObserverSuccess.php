@@ -82,11 +82,10 @@ class ObserverSuccess implements ObserverInterface
                 return $this;
             }
 
-            /*
             $this->_logger->info("Shipping address", ["data" => $shippingAddress->getData()]);
-            $this->_logger->info("order", ["order" => $order->getData()]);
-            $this->_logger->info("quoteId", ["order" => $quoteId]);
-            $this->_logger->info("quoteId", ["order" => $shipping_id]);*/
+            $this->_logger->info("order", ["data" => $order->getData()]);
+            $this->_logger->info("quoteId", ["data" => $quoteId]);
+            $this->_logger->info("shippingid", ["data" => $shipping_id]);
 
             $fromData = $this->createAddressDataStr(
                 "MIENVIO DE MEXICO",
@@ -140,6 +139,8 @@ class ObserverSuccess implements ObserverInterface
                 $this->createQuoteFromItems(
                     $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl, $chosenServicelevel, $chosenProvider
                 );
+
+                return $this;
             }
 
             $packageVolWeight = $itemsMeasures['vol_weight'];
@@ -226,8 +227,10 @@ class ObserverSuccess implements ObserverInterface
             'address_from'  => $addressFromId,
             'address_to'    => $addressToId,
             'servicelevel'  => $servicelevel,
-            'provider'      => $provider
+            'provider'      => $provider,
+            'object_purpose' => 'PURCHASE'
         ];
+
         $this->_logger->debug('Quote request', ['data' => json_encode($quoteReqData)]);
         $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
         $quoteResponse = json_decode($this->_curl->getBody());
