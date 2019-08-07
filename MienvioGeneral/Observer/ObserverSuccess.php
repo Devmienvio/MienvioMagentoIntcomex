@@ -37,21 +37,23 @@ class ObserverSuccess implements ObserverInterface
 
     public function execute(Observer $observer)
     {
-        $this->_logger->info("execute");
         /** @var \Magento\Sales\Model\Order $order */
         $order = $observer->getData('order');
         $shippingMethodObject = $order->getShippingMethod(true);
         $shipping_id = $shippingMethodObject->getMethod();
+        $chosenServicelevel = '';
+        $chosenProvider = '';
 
         if ($shippingMethodObject->getCarrierCode() != $this->_code) {
             return $this;
         }
 
         if (!self::IS_QUOTE_ENDPOINT_ACTIVE) {
-            // $shippingInfo = explode("-", $shipping_id);
-            // $this->updateQuote($shippingInfo[0], $shippingInfo[1], );
-            return $this;
+            $shippingInfo = explode("-", $shipping_id);
+            $chosenServicelevel = $shippingInfo[0];
+            $chosenProvider = $shippingInfo[1];
         }
+
 
         // Logic to save orders in mienvio api
         try {
@@ -60,9 +62,9 @@ class ObserverSuccess implements ObserverInterface
             $getPackagesUrl = $baseUrl . 'api/packages';
             $createAddressUrl = $baseUrl . 'api/addresses';
             $createShipmentUrl = $baseUrl . 'api/shipments';
+            $createQuoteUrl     = $baseUrl . 'api/quotes';
 
             $order = $observer->getEvent()->getOrder();
-            $this->_logger->info("setMienvioCarriers");
             $order->setMienvioCarriers($shipping_id);
             $orderId = $order->getId();
             $orderData = $order->getData();
@@ -79,17 +81,11 @@ class ObserverSuccess implements ObserverInterface
                 return $this;
             }
 
+            /*
             $this->_logger->info("Shipping address", ["data" => $shippingAddress->getData()]);
             $this->_logger->info("order", ["order" => $order->getData()]);
             $this->_logger->info("quoteId", ["order" => $quoteId]);
-            $this->_logger->info("quoteId", ["order" => $shipping_id]);
-
-            $customerName= $shippingAddress->getName();
-            $customermail= $shippingAddress->getEmail();
-            $customerPhone= $shippingAddress->getTelephone();
-            $countryId = $shippingAddress->getCountryId();
-
-            $this->_logger->info("cc", ["cc" => $shippingAddress->getCountryId()]);
+            $this->_logger->info("quoteId", ["order" => $shipping_id]);*/
 
             $fromData = $this->createAddressDataStr(
                 "MIENVIO DE MEXICO",
@@ -102,19 +98,23 @@ class ObserverSuccess implements ObserverInterface
                 $countryId
             );
 
+            $customerName  = $shippingAddress->getName();
+            $customermail  = $shippingAddress->getEmail();
+            $customerPhone = $shippingAddress->getTelephone();
+            $countryId     = $shippingAddress->getCountryId();
+
             $toStreet2 = empty($shippingAddress->getStreetLine(2)) ? $shippingAddress->getStreetLine(1) : $shippingAddress->getStreetLine(2);
 
             $toData = $this->createAddressDataStr(
                 $customerName,
-                $shippingAddress->getStreetLine(1),
-                $toStreet2,
+                substr($shippingAddress->getStreetLine(1), 0, 30),
+                substr($toStreet2, 0, 30),
                 $shippingAddress->getPostcode(),
                 $customermail,
                 $customerPhone,
-                $shippingAddress->getStreetLine(3),
+                substr($shippingAddress->getStreetLine(3), 0, 30),
                 $countryId
             );
-
 
             $this->_logger->info("Addresses data", ["to" => $toData, "from" => $fromData]);
 
@@ -134,6 +134,13 @@ class ObserverSuccess implements ObserverInterface
             /* Measures */
             $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllItems());
             $packageWeight = $this->convertWeight($orderData['weight']);
+
+            if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
+                $this->createQuoteFromItems(
+                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl, $chosenServicelevel, $chosenProvider
+                );
+            }
+
             $packageVolWeight = $itemsMeasures['vol_weight'];
             $orderLength = $itemsMeasures['length'];
             $orderWidth  = $itemsMeasures['width'];
@@ -198,6 +205,39 @@ class ObserverSuccess implements ObserverInterface
         }
 
         return $this;
+    }
+
+    /**
+     * Create quote using given items
+     *
+     * @param  array $items
+     * @param  integer $addressFromId
+     * @param  integer $addressToId
+     * @param  string $createQuoteUrl
+     * @param  string $servicelevel
+     * @param  string $provider
+     * @return string
+     */
+    private function createQuoteFromItems($items, $addressFromId, $addressToId, $createQuoteUrl, $servicelevel, $provider)
+    {
+        $quoteReqData = [
+            'items'         => $items,
+            'address_from'  => $addressFromId,
+            'address_to'    => $addressToId,
+            'servicelevel'  => $servicelevel,
+            'provider'      => $provider
+        ];
+
+        $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
+        $quoteResponse = json_decode($this->_curl->getBody());
+        $this->_logger->debug($this->_curl->getBody());
+
+        return [[
+            'courier'      => $quoteResponse->{'courier'},
+            'servicelevel' => $quoteResponse->{'servicelevel'},
+            'id'           => $quoteResponse->{'quote_id'},
+            'cost'         => $quoteResponse->{'cost'}
+        ]];
     }
 
     /**
