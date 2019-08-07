@@ -48,7 +48,7 @@ class ObserverSuccess implements ObserverInterface
             return $this;
         }
 
-        if (!self::IS_QUOTE_ENDPOINT_ACTIVE) {
+        if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
             $shippingInfo = explode("-", $shipping_id);
             $chosenServicelevel = $shippingInfo[0];
             $chosenProvider = $shippingInfo[1];
@@ -230,7 +230,7 @@ class ObserverSuccess implements ObserverInterface
             'servicelevel'  => $servicelevel,
             'provider'      => $provider,
             'object_purpose' => 'PURCHASE',
-            'order_id'      => 'order_id'
+            'order_id'      => $orderId
         ];
 
         $this->_logger->debug('Quote request', ['data' => json_encode($quoteReqData)]);
