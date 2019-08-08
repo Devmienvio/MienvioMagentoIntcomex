@@ -33,6 +33,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     const IS_QUOTE_ENDPOINT_ACTIVE = true;
 
+    protected $_storeManager;
+
     public function __construct(
         ScopeConfigInterface $scopeConfig,
         ErrorFactory $rateErrorFactory,
@@ -42,8 +44,10 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         \Magento\Framework\HTTP\Client\Curl $curl,
         Helper $helperData,
         \Magento\Directory\Helper\Data $directoryHelper,
+        \Magento\Store\Model\StoreManagerInterface $storeManager,
         array $data = []
     ) {
+        $this->_storeManager = $storeManager;
         $this->_code = 'mienviocarrier';
         $this->lbs_kg = 0.45359237;
         $this->_rateResultFactory = $rateResultFactory;
@@ -96,8 +100,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     private function processFullAddress($fullStreet)
     {
         $response = [
-            'street' => '',
-            'suburb' => ''
+            'street' => '.',
+            'suburb' => '.'
         ];
 
         if ($fullStreet != null && $fullStreet != "") {
@@ -132,7 +136,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $getPackagesUrl     = $baseUrl . 'api/packages';
         $createAddressUrl   = $baseUrl . 'api/addresses';
         $createQuoteUrl     = $baseUrl . 'api/quotes';
-
 
         try {
             /* ADDRESS CREATION */
@@ -172,10 +175,12 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             $this->_curl->post($createAddressUrl, json_encode($fromData));
             $addressFromResp = json_decode($this->_curl->getBody());
+            $this->_logger->debug($this->_curl->getBody());
             $addressFromId = $addressFromResp->{'address'}->{'object_id'};
 
             $this->_curl->post($createAddressUrl, json_encode($toData));
             $addressToResp = json_decode($this->_curl->getBody());
+            $this->_logger->debug($this->_curl->getBody());
             $addressToId = $addressToResp->{'address'}->{'object_id'};
 
             $itemsMeasures = $this->getOrderDefaultMeasures($request->getAllItems());
@@ -192,11 +197,16 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             }
 
             foreach ($rates as $rate) {
+                $this->_logger->debug('rate_id');
+                $methodId = $rate['servicelevel'] . '-' . $rate['courier'];
+                $this->_logger->debug((string)$methodId);
+                $this->_logger->debug(strval($rate['id']));
+
                 $method = $this->_rateMethodFactory->create();
                 $method->setCarrier($this->getCarrierCode());
                 $method->setCarrierTitle($rate['courier']);
-                $method->setMethod($rate['servicelevel']);
-                $method->setMethodTitle($rate['id']);
+                $method->setMethod((string)$methodId);
+                $method->setMethodTitle($rate['servicelevel']);
                 $method->setPrice($rate['cost']);
                 $method->setCost($rate['cost']);
                 $rateResponse->append($method);
@@ -205,6 +215,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $this->_logger->debug("Rates Exception");
             $this->_logger->debug($e);
         }
+
         return $rateResponse;
     }
 
@@ -222,11 +233,30 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $quoteReqData = [
             'items'         => $items,
             'address_from'  => $addressFromId,
-            'address_to'    => $addressToId
+            'address_to'    => $addressToId,
+            'shop_url'     => $this->_storeManager->getStore()->getUrl()
         ];
 
+        $this->_logger->debug('Creating quote (mienviorates)', ['request' => json_encode($quoteReqData)]);
         $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
         $quoteResponse = json_decode($this->_curl->getBody());
+        $this->_logger->debug('Creating quote (mienviorates)', ['response' => $this->_curl->getBody()]);
+
+        if (isset($quoteResponse->{'rates'})) {
+            $rates = [];
+
+            foreach ($quoteResponse->{'rates'} as $rate) {
+                $rates[] = [
+                    'courier'      => $rate->{'provider'},
+                    'servicelevel' => $rate->{'servicelevel'},
+                    'id'           => $quoteResponse->{'quote_id'},
+                    'cost'         => $rate->{'amount'},
+                    'key'          => $rate->{'provider'} . '-' . $rate->{'servicelevel'}
+                ];
+            }
+
+            return $rates;
+        }
 
         return [[
             'courier'      => $quoteResponse->{'courier'},
