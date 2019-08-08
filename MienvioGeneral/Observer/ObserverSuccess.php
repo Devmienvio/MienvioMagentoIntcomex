@@ -239,10 +239,10 @@ class ObserverSuccess implements ObserverInterface
             'shop_url'     => $this->_storeManager->getStore()->getUrl()
         ];
 
-        $this->_logger->debug('Creating quote', ['request' => json_encode($quoteReqData)]);
+        $this->_logger->debug('Creating quote (ObserverSuccess)', ['request' => json_encode($quoteReqData)]);
         $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
         $quoteResponse = json_decode($this->_curl->getBody());
-        $this->_logger->debug('Creating quote', ['response' => $this->_curl->getBody()]);
+        $this->_logger->debug('Creating quote (ObserverSuccess)', ['response' => $this->_curl->getBody()]);
 
         return [[
             'courier'      => $quoteResponse->{'courier'},
