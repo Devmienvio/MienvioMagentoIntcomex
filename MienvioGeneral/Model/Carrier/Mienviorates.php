@@ -137,10 +137,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $createAddressUrl   = $baseUrl . 'api/addresses';
         $createQuoteUrl     = $baseUrl . 'api/quotes';
 
-        $this->_logger->debug('Get store id', ['id' => $this->_storeManager->getStore()->getCode()]);
-        $this->_logger->debug('Get store id', ['id' => $this->_storeManager->getStore()->getName()]);
-        $this->_logger->debug('Get store id', ['id' => $this->_storeManager->getStore()->getUrl()]);
-
         try {
             /* ADDRESS CREATION */
             $destCountryId  = $request->getDestCountryId();
@@ -238,12 +234,13 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             'items'         => $items,
             'address_from'  => $addressFromId,
             'address_to'    => $addressToId,
-            'retrieve_all_rates' => true
+            'store_url'     => $this->_storeManager->getStore()->getUrl()
         ];
 
+        $this->_logger->debug('Creating quote', ['request' => json_encode($quoteReqData)]);
         $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
         $quoteResponse = json_decode($this->_curl->getBody());
-        $this->_logger->debug($this->_curl->getBody());
+        $this->_logger->debug('Creating quote', ['request' => $this->_curl->getBody()]);
 
         if (isset($quoteResponse->{'rates'})) {
             $rates = [];
