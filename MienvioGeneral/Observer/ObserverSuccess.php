@@ -236,7 +236,7 @@ class ObserverSuccess implements ObserverInterface
             'provider'      => $provider,
             'object_purpose' => 'PURCHASE',
             'order_id'      => $orderId,
-            'store_url'     => $this->_storeManager->getStore()->getUrl()
+            'shop_url'     => $this->_storeManager->getStore()->getUrl()
         ];
 
         $this->_logger->debug('Creating quote', ['request' => json_encode($quoteReqData)]);
