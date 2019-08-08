@@ -132,7 +132,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $getPackagesUrl     = $baseUrl . 'api/packages';
         $createAddressUrl   = $baseUrl . 'api/addresses';
         $createQuoteUrl     = $baseUrl . 'api/quotes';
-        $store = Mage::app()->getStore();
+        $storeManager = \Magento\Store\Model\StoreManagerInterface::getStore();
         $this->_logger->debug('Get store id', ['id' => $store->getId()]);
 
         try {
