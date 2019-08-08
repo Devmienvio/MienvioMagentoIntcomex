@@ -139,7 +139,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
         $this->_logger->debug('Get store id', ['id' => $this->_storeManager->getStore()->getCode()]);
         $this->_logger->debug('Get store id', ['id' => $this->_storeManager->getStore()->getName()]);
-        
+        $this->_logger->debug('Get store id', ['id' => $this->_storeManager->getStore()->getUrl()]);
 
         try {
             /* ADDRESS CREATION */
