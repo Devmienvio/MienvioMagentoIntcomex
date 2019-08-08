@@ -240,7 +240,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $this->_logger->debug('Creating quote', ['request' => json_encode($quoteReqData)]);
         $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
         $quoteResponse = json_decode($this->_curl->getBody());
-        $this->_logger->debug('Creating quote', ['request' => $this->_curl->getBody()]);
+        $this->_logger->debug('Creating quote', ['response' => $this->_curl->getBody()]);
 
         if (isset($quoteResponse->{'rates'})) {
             $rates = [];
