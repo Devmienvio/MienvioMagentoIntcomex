@@ -137,7 +137,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $createAddressUrl   = $baseUrl . 'api/addresses';
         $createQuoteUrl     = $baseUrl . 'api/quotes';
 
-        $this->_logger->debug('Get store id', ['id' => $this->_storeManager->getStore()->getId()]);
+        $this->_logger->debug('Get store id', ['id' => $this->_storeManager->getStore()->getCode()]);
+        $this->_logger->debug('Get store id', ['id' => $this->_storeManager->getStore()->getName()]);
+        
 
         try {
             /* ADDRESS CREATION */
