@@ -20,17 +20,14 @@ class ObserverSuccess implements ObserverInterface
      */
     const IS_QUOTE_ENDPOINT_ACTIVE = true;
 
-    protected $_storeManager;
 
     public function __construct(
         CollectionFactory $collectionFactory,
         QuoteRepository $quoteRepository,
         \Magento\Framework\HTTP\Client\Curl $curl,
         Helper $helperData,
-        LoggerInterface $logger,
-        \Magento\Store\Model\StoreManagerInterface $storeManager
+        LoggerInterface $logger
     ) {
-        $this->_storeManager = $storeManager;
         $this->collectionFactory = $collectionFactory;
         $this->quoteRepository = $quoteRepository;
         $this->_code = 'mienviocarrier';
@@ -235,8 +232,7 @@ class ObserverSuccess implements ObserverInterface
             'servicelevel'  => $servicelevel,
             'provider'      => $provider,
             'object_purpose' => 'PURCHASE',
-            'order_id'      => $orderId,
-            'store_url'     => $this->_storeManager->getStore()->getUrl()
+            'order_id'      => $orderId
         ];
 
         $this->_logger->debug('Creating quote', ['request' => json_encode($quoteReqData)]);
