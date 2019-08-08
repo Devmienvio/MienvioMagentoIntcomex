@@ -44,6 +44,9 @@ class ObserverSuccess implements ObserverInterface
         $chosenServicelevel = '';
         $chosenProvider = '';
 
+        $store = Mage::app()->getStore();
+        $this->_logger->debug('Get store id', ['id' => $store->getId()]);
+
         if ($shippingMethodObject->getCarrierCode() != $this->_code) {
             return $this;
         }
