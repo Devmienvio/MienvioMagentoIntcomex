@@ -33,6 +33,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     const IS_QUOTE_ENDPOINT_ACTIVE = true;
 
+    protected $_storeManager;
+
     public function __construct(
         ScopeConfigInterface $scopeConfig,
         ErrorFactory $rateErrorFactory,
@@ -42,8 +44,10 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         \Magento\Framework\HTTP\Client\Curl $curl,
         Helper $helperData,
         \Magento\Directory\Helper\Data $directoryHelper,
+        \Magento\Store\Model\StoreManagerInterface $storeManager,
         array $data = []
     ) {
+        $this->_storeManager = $storeManager;
         $this->_code = 'mienviocarrier';
         $this->lbs_kg = 0.45359237;
         $this->_rateResultFactory = $rateResultFactory;
@@ -132,8 +136,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $getPackagesUrl     = $baseUrl . 'api/packages';
         $createAddressUrl   = $baseUrl . 'api/addresses';
         $createQuoteUrl     = $baseUrl . 'api/quotes';
-        $storeManager = new \Magento\Store\Model\StoreManagerInterface();
-        $this->_logger->debug('Get store id', ['id' => $store->getStore()->getId()]);
+
+        $this->_logger->debug('Get store id', ['id' => $this->_storeManager->getStore()->getId()]);
 
         try {
             /* ADDRESS CREATION */
