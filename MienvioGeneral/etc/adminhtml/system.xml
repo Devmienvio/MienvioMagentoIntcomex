@@ -8,14 +8,56 @@
                     <label>Enabled</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                 </field>
-                <field id="apikey" translate="label" type="text" sortOrder="4" showInDefault="1" showInWebsite="1" showInStore="0">
+                <field id="apikey" translate="label" type="text" sortOrder="2" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>API Key</label>
                     <comment>Available under your Mienvio account. Go to Settings &gt; API</comment>
                 </field>
-                <field id="environment" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                <field id="apikeyredundant" translate="label" type="text" sortOrder="3" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>API Key Redundante</label>
+                    <comment>Available under your Mienvio account. Go to Settings &gt; API</comment>
+                </field>
+                <field id="environment" translate="label" type="select" sortOrder="3" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Ambiente de trabajo</label>
                     <source_model>MienvioMagento\MienvioGeneral\Model\Config\Source\Environments</source_model>
                 </field>
+                <field id="freeshipping" translate="label" type="select" sortOrder="4" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Free Shipping</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+                <field id="titlemethodfree" translate="label" type="text" sortOrder="5" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Free Shipping Key</label>
+                    <comment>Title - Method Name</comment>
+                </field>
+                <field id="servicelevel" translate="label" type="text" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Default Service level</label>
+                    <comment>Default Service level for free shipping</comment>
+                </field>
+                <field id="provider" translate="label" type="text" sortOrder="7" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Provider</label>
+                    <comment>Default Provider for free shipping</comment>
+                </field>
+
+
+                <field id="location" translate="label" type="text" sortOrder="8" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Location</label>
+                    <comment>Set the field to get the location</comment>
+                </field>
+
+                <field id="measures" translate="label" type="select" sortOrder="9" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Measures</label>
+                    <source_model>MienvioMagento\MienvioGeneral\Model\Config\Source\Measures</source_model>
+                </field>
+
+                <field id="showmethod" translate="label" type="select" sortOrder="80" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Show Method if Not Applicable</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <frontend_class>shipping-skip-hide</frontend_class>
+                </field>
+                <field id="sort_order" translate="label" type="text" sortOrder="90" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Sort Order</label>
+                </field>
+
+
             </group>
         </section>
     </system>

@@ -44,9 +44,54 @@ class ObserverSuccess implements ObserverInterface
         /** @var \Magento\Sales\Model\Order $order */
         $order = $observer->getData('order');
         $shippingMethodObject = $order->getShippingMethod(true);
+        if(!$shippingMethodObject){
+            return $this;
+        }
         $shipping_id = $shippingMethodObject->getMethod();
         $chosenServicelevel = '';
         $chosenProvider = '';
+
+
+        $dataOrder = $order->getData();
+        $order_quote_id = $dataOrder['quote_id'];
+        $order_shipping_amount = $dataOrder['shipping_amount'];
+        $order_shipping_description = $dataOrder['shipping_description'];
+        $order_shipping_method = $dataOrder['shipping_method'];
+        $quoteId = $order->getQuoteId();
+        $quote = $this->quoteRepository->get($quoteId);
+
+        $shipping_cost = $order->getShippingAmount();
+
+        $isFreeActive = $this->checkIfIsFreeShipping();
+        $titleMethodFree = $this->_mienvioHelper->getTitleMethodFree();
+
+        if($shipping_cost == 0 && $isFreeActive === true){
+
+
+            try{
+                $mienvioResponse = $this->saveFreeShipping($observer);
+                $mienvioAmount = $mienvioResponse['rates'][0]["amount"];
+                $mienvioProvider = $mienvioResponse['rates'][0]["provider"];
+                $mienvioServiceLevel = $mienvioResponse['rates'][0]["servicelevel"];
+                $mienvioQuoteId = $mienvioResponse['quote_id'];
+                //$order->setShippingAmount($mienvioAmount);
+                $order->setBaseShippingAmount($mienvioAmount);
+                $order->setBaseShippingDiscountAmount($mienvioAmount);
+                $order->setShippingDiscountAmount($mienvioAmount);
+                $order->setShippingInclTax($mienvioAmount);
+                $order->setBaseShippingInclTax($mienvioAmount);
+                $order->setMienvioQuoteId($mienvioQuoteId);
+                $order->setShippingDescription($mienvioProvider.' - '.$mienvioServiceLevel);
+                $order->setShippingMethod('mienviocarrier_'.$mienvioServiceLevel.'-'.$mienvioProvider);
+                $order->save();
+            }catch (\Exception $e) {
+                $order->setMienvioQuoteId('Generar guía Manual');
+                $order->save();
+                $this->_logger->debug('Error when generate Free Shipping', ['e' => $e]);
+            }
+
+            return $this;
+        }
 
 
         if ($shippingMethodObject->getCarrierCode() != $this->_code) {
@@ -82,6 +127,8 @@ class ObserverSuccess implements ObserverInterface
             $quote = $this->quoteRepository->get($quoteId);
             $shippingAddress = $quote->getShippingAddress();
             $countryId = $shippingAddress->getCountryId();
+            $destRegion     = $shippingAddress->getRegion();
+            $destRegionCode = $shippingAddress->getRegionCode();
 
             if ($shippingAddress === null) {
                 return $this;
@@ -92,15 +139,16 @@ class ObserverSuccess implements ObserverInterface
             $this->_logger->info("quoteId", ["data" => $quoteId]);
             $this->_logger->info("shippingid", ["data" => $shipping_id]);
 
-            $fromData = $this->createAddressDataStr(
+            $fromData = $this->createAddressDataStr('from',
                 "MIENVIO DE MEXICO",
                 $this->_mienvioHelper->getOriginStreet(),
                 $this->_mienvioHelper->getOriginStreet2(),
                 $this->_mienvioHelper->getOriginZipCode(),
                 "ventas@mienvio.mx",
-                "5551814040",
+                "4422876138",
                 '',
-                $countryId
+                $countryId,
+                $this->_mienvioHelper->getOriginCity()
             );
 
             $customerName  = $shippingAddress->getName();
@@ -110,15 +158,17 @@ class ObserverSuccess implements ObserverInterface
 
             $toStreet2 = empty($shippingAddress->getStreetLine(2)) ? $shippingAddress->getStreetLine(1) : $shippingAddress->getStreetLine(2);
 
-            $toData = $this->createAddressDataStr(
+            $toData = $this->createAddressDataStr('to',
                 $customerName,
-                substr($shippingAddress->getStreetLine(1), 0, 30),
-                substr($toStreet2, 0, 30),
-                $shippingAddress->getPostcode(),
+                $shippingAddress->getStreetLine(1),
+                $toStreet2,$shippingAddress->getPostcode(),
                 $customermail,
                 $customerPhone,
-                substr($shippingAddress->getStreetLine(3), 0, 30),
-                $countryId
+                $shippingAddress->getStreetLine(3),
+                $countryId,
+                $destRegion,
+                $destRegionCode,
+                $shippingAddress->getCity()
             );
 
             $this->_logger->info("Addresses data", ["to" => $toData, "from" => $fromData]);
@@ -141,10 +191,13 @@ class ObserverSuccess implements ObserverInterface
             $packageWeight = $this->convertWeight($orderData['weight']);
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
-                $this->createQuoteFromItems(
-                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl, $chosenServicelevel, $chosenProvider, $quoteId
+                $mienvioResponse = $this->createQuoteFromItems(
+                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl, $chosenServicelevel, $chosenProvider, $order->getIncrementId()
                 );
-
+                $mienvioQuoteId = $mienvioResponse['quote_id'];
+                $this->_logger->info("QUOTEid", ["data" => $mienvioQuoteId]);
+                $order->setMienvioQuoteId($mienvioQuoteId);
+                $order->save();
                 return $this;
             }
 
@@ -206,6 +259,7 @@ class ObserverSuccess implements ObserverInterface
             $response = json_decode($this->_curl->getBody());
 
             $this->_logger->info('Shipment response', ["data" => $response]);
+            $this->_logger->info("shippingid", ["data" => $shipping_id]);
         } catch (\Exception $e) {
             $this->_logger->info("error saving new shipping method Exception");
             $this->_logger->info($e->getMessage());
@@ -239,17 +293,13 @@ class ObserverSuccess implements ObserverInterface
             'shop_url'     => $this->_storeManager->getStore()->getUrl()
         ];
 
-        $this->_logger->debug('Creating quote (ObserverSuccess)', ['request' => json_encode($quoteReqData)]);
+        $this->_logger->debug('Creating quote (ObserverSuccess)'.$createQuoteUrl, ['request' => json_encode($quoteReqData)]);
         $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
-        $quoteResponse = json_decode($this->_curl->getBody());
-        $this->_logger->debug('Creating quote (ObserverSuccess)', ['response' => $this->_curl->getBody()]);
+        $quoteResponse = $this->_curl->getBody();
+        $res = json_decode(stripslashes($quoteResponse), true);
+        $this->_logger->debug('Creating quote (ObserverSuccess)', ['response' => $res]);
+        return $res;
 
-        return [[
-            'courier'      => $quoteResponse->{'courier'},
-            'servicelevel' => $quoteResponse->{'servicelevel'},
-            'id'           => $quoteResponse->{'quote_id'},
-            'cost'         => $quoteResponse->{'cost'}
-        ]];
     }
 
     /**
@@ -260,7 +310,7 @@ class ObserverSuccess implements ObserverInterface
      */
     private function getOrderDefaultMeasures($items)
     {
-        $this->_logger->debug('Items', ['data' => $items]);
+        //$this->_logger->debug('Items PREUBA 22 FEBRERO', ['data' => $items]);
         $packageVolWeight = 0;
         $orderLength = 0;
         $orderWidth = 0;
@@ -273,11 +323,20 @@ class ObserverSuccess implements ObserverInterface
             $productName = $item->getName();
             $orderDescription .= $productName . ' ';
             $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
+            $this->_logger->debug('Items PREUBA 22 FEBRERO', ['PRODUCTO' => $product]);
+            $dimensions = $this->getDimensionItems($product);
 
-            $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
-            $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
-            $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
-            $weight = $this->convertWeight($product->getData('weight'));
+            if(is_array($dimensions)){
+                $length = $dimensions['length'];
+                $width  = $dimensions['width'];
+                $height = $dimensions['height'];
+                $weight = $dimensions['weight'];
+            }else{
+                $length = 2;
+                $width  = 2;
+                $height = 2;
+                $weight = 0.5;
+            }
 
             $orderLength += $length;
             $orderWidth  += $width;
@@ -307,6 +366,79 @@ class ObserverSuccess implements ObserverInterface
             'description' => $orderDescription,
             'items'       => $itemsArr
         ];
+    }
+
+
+    private function getDimensionItems($product){
+        $length = 0;
+        $width = 0;
+        $height = 0;
+        $weight = 0;
+        if($product->getData('ts_dimensions_length') != 0 && $product->getData('ts_dimensions_length') != null) {
+            if ($this->_mienvioHelper->getMeasures() === 1) {
+                $length = $product->getData('ts_dimensions_length');
+                $width = $product->getData('ts_dimensions_width');
+                $height = $product->getData('ts_dimensions_height');
+                $weight = $product->getData('weight');
+
+
+            } else {
+                $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
+                $width = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
+                $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
+                $weight = $this->convertWeight($product->getData('weight'));
+            }
+        }else if($product->getAttribute('length') != 0 && $product->getAttribute('length') != null){
+            if ($this->_mienvioHelper->getMeasures() === 1) {
+                $length = $product->getAttribute('length');
+                $width = $product->getAttribute('width');
+                $height = $product->getAttribute('height');
+                $weight = $product->getAttribute('weight');
+            } else {
+                $length = $this->convertInchesToCms($product->getAttribute('length'));
+                $width = $this->convertInchesToCms($product->getAttribute('width'));
+                $height = $this->convertInchesToCms($product->getAttribute('height'));
+                $weight = $this->convertWeight($product->getAttribute('weight'));
+            }
+        }else if($product->getData('length') != 0 && $product->getData('length') != null){
+            if ($this->_mienvioHelper->getMeasures() === 1) {
+                $length = $product->getData('length');
+                $width = $product->getData('width');
+                $height = $product->getData('height');
+                $weight = $product->getData('weight');
+
+
+            } else {
+                $length = $this->convertInchesToCms($product->getData('length'));
+                $width = $this->convertInchesToCms($product->getData('width'));
+                $height = $this->convertInchesToCms($product->getData('height'));
+                $weight = $this->convertWeight($product->getData('weight'));
+            }
+        }else{
+            $length = 0.5;
+            $width = 0.5;
+            $height = 0.5;
+            $weight = 0.2;
+            $this->_logger->debug('SHIPMENT WITH ITEM MEASURES IN 0, only for testing porpuses', ['ITEMSSSSS' => serialize($product->getData())]);
+
+
+            try{
+                $length = $product->getAttributeText('length');
+                $width = $product->getAttributeText('width');
+                $height = $product->getAttributeText('height');
+                $this->_logger->debug('SHIPMENT PRODUCT ATTRIBUTE TEXT', ['ITEM' => serialize($product->getAttributeText('length'))]);
+
+            } catch (\Exception $e) {
+                $this->_logger->debug("Measures Exception");
+                $this->_logger->debug($e);
+            }
+        }
+        return array(
+            'length' => $length,
+            'width' => $width,
+            'height' => $height,
+            'weight' => $weight
+        );
     }
 
     /**
@@ -339,7 +471,7 @@ class ObserverSuccess implements ObserverInterface
     {
         $volumetricWeight = round(((1 * $length * $width * $height) / 5000), 4);
 
-		return $volumetricWeight;
+        return $volumetricWeight;
     }
 
     /**
@@ -435,12 +567,9 @@ class ObserverSuccess implements ObserverInterface
      * @param  string $countryCode
      * @return string
      */
-    private function createAddressDataStr($name, $street, $street2, $zipcode, $email, $phone, $reference = '.', $countryCode)
+    private function createAddressDataStr($type,$name, $street, $street2, $zipcode, $email, $phone, $reference = '.', $countryCode,$destRegion = null, $destRegionCode = null, $destCity = null)
     {
-        $street = substr($street, 0, 35);
-        $street2 = substr($street2, 0, 35);
-        $name = substr($name, 0, 80);
-        $phone = substr($phone, 0, 20);
+
         $data = [
             'object_type' => 'PURCHASE',
             'name' => $name,
@@ -451,24 +580,293 @@ class ObserverSuccess implements ObserverInterface
             'reference' => $reference
         ];
 
-        if ($countryCode === 'MX') {
-            $data['zipcode'] = $zipcode;
-        } else {
-            $data['level_1'] = $zipcode;
+        $location = $this->_mienvioHelper->getLocation();
+        $this->_logger->debug('LOCATION: '.$location);
+        $this->_logger->debug('STREET2: '.$street2);
+        $this->_logger->debug('DestRegion: '.$destRegion);
+        $this->_logger->debug('DestRegionCode: '.$destRegionCode);
+        $this->_logger->debug('DesCity: '.$destCity);
+
+        if($location == 'street2' ){
+
+            if ($countryCode === 'MX') {
+                $data['zipcode'] = $zipcode;
+            } elseif ($countryCode === 'PA' || $countryCode === 'CO'){
+                if($type === 'from'){
+                    $data['level_1'] = $street2;
+                    $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                }
+                if($type === 'to'){
+                    if($destCity != ''){
+                        $data['level_1'] = $destCity;
+                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                    }elseif ($street2 != ''){
+                        $data['level_1'] = $street2;
+                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                    }
+                }
+
+            } else {
+                $data['level_1'] = $street2;
+                $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+            }
+
+        }else if($location == 'zipcode' ){
+            if ($countryCode === 'MX') {
+                $data['zipcode'] = $zipcode;
+            } else {
+                $data['level_1'] = $zipcode;
+                $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+            }
+
+        }else{
+            if ($countryCode === 'MX') {
+                $data['zipcode'] = $zipcode;
+            } else {
+                $data['level_1'] = $zipcode;
+                $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+            }
         }
 
-        /*$data = '{
-            "object_type": "PURCHASE",
-            "name": "'. $name . '",
-            "street": "'. $street . '",
-            "street2": "'. $street2 . '",
-            "level_1": "'. $zipcode . '",
-            "email": "'. $email .'",
-            "phone": "'. $phone .'",
-            "reference": "'. $reference .'"
-        }';*/
 
         $this->_logger->info("createAddressDataStr", ["data" => $data]);
         return $data;
+    }
+
+    /*
+    * Valida que los campos de ciudad, recgion y código de región no sean vacios.
+    * Se implementa esta función ya que magento dependiendo de la configuraciones de
+    * dirección de origen y destnio, cambia el campo donde se valida el nivel 2 de la direccion.
+    *
+    */
+    private function getLevel2FromAddress ($destRegion,$destRegionCode,$destCity)
+    {
+        $level2 = $destCity;
+        if($level2 == null){
+            $level2 = $destRegion;
+            if($level2 == null)
+                $level2 = $destRegionCode;
+        }
+        return $level2;
+    }
+
+    private function saveFreeShipping($observer){
+
+        $order = $observer->getData('order');
+        $shippingMethodObject = $order->getShippingMethod(true);
+        $shipping_id = $shippingMethodObject->getMethod();
+        $chosenServicelevel = $this->_mienvioHelper->getServiceLevel();
+        $chosenProvider = $this->_mienvioHelper->getProvider();
+
+        try {
+            $baseUrl =  $this->_mienvioHelper->getEnvironment();
+            $apiKey = $this->_mienvioHelper->getMienvioApi();
+            $getPackagesUrl = $baseUrl . 'api/packages';
+            $createAddressUrl = $baseUrl . 'api/addresses';
+            $createShipmentUrl = $baseUrl . 'api/shipments';
+            $createQuoteUrl     = $baseUrl . 'api/quotes';
+
+            $order = $observer->getEvent()->getOrder();
+            $order->setMienvioCarriers($shipping_id);
+            $orderId = $order->getId();
+            $orderData = $order->getData();
+            $quoteId = $order->getQuoteId();
+
+            if ($quoteId === null) {
+                return $this;
+            }
+
+            $quote = $this->quoteRepository->get($quoteId);
+            $shippingAddress = $quote->getShippingAddress();
+            $countryId = $shippingAddress->getCountryId();
+
+            if ($shippingAddress === null) {
+                return $this;
+            }
+
+            $this->_logger->info("Shipping address", ["data" => $shippingAddress->getData()]);
+            $this->_logger->info("order", ["data" => $order->getData()]);
+            $this->_logger->info("quoteId", ["data" => $quoteId]);
+            $this->_logger->info("shippingid", ["data" => $shipping_id]);
+
+            $fromData = $this->createAddressDataStr('from',
+                "MIENVIO DE MEXICO",
+                $this->_mienvioHelper->getOriginStreet(),
+                $this->_mienvioHelper->getOriginStreet2(),
+                $this->_mienvioHelper->getOriginZipCode(),
+                "ventas@mienvio.mx",
+                "4422876138",
+                '',
+                $countryId,
+                '',
+                '',
+                $this->_mienvioHelper->getOriginCity()
+            );
+
+            $customerName  = $shippingAddress->getName();
+            $customermail  = $shippingAddress->getEmail();
+            $customerPhone = $shippingAddress->getTelephone();
+            $countryId     = $shippingAddress->getCountryId();
+
+            $toStreet2 = empty($shippingAddress->getStreetLine(2)) ? $shippingAddress->getStreetLine(1) : $shippingAddress->getStreetLine(2);
+
+            $toData = $this->createAddressDataStr('to',
+                $customerName,
+                $shippingAddress->getStreetLine(1),
+                $toStreet2,
+                $shippingAddress->getPostcode(),
+                $customermail,
+                $customerPhone,
+                $shippingAddress->getStreetLine(3),
+                $countryId,
+                '',
+                '',
+                $shippingAddress->getCity()
+            );
+
+            $this->_logger->info("Addresses data", ["to" => $toData, "from" => $fromData]);
+
+            $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
+            $this->_curl->setOptions($options);
+
+            $this->_curl->post($createAddressUrl, json_encode($fromData));
+            $addressFromResp = json_decode($this->_curl->getBody());
+            $addressFromId = $addressFromResp->{'address'}->{'object_id'};
+
+            $this->_curl->post($createAddressUrl, json_encode($toData));
+            $addressToResp = json_decode($this->_curl->getBody());
+            $addressToId = $addressToResp->{'address'}->{'object_id'};
+
+            $this->_logger->info("responses", ["to" => $addressToId, "from" => $addressFromId]);
+
+            /* Measures */
+            $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllVisibleItems());
+            $packageWeight = $this->convertWeight($orderData['weight']);
+
+            if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
+                $response = $this->createQuoteFromItems(
+                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl, $chosenServicelevel, $chosenProvider, $order->getIncrementId()
+                );
+
+
+                return $response;
+            }
+
+        } catch (\Exception $e) {
+            $this->_logger->info("error saving new shipping method Exception");
+            $this->_logger->info($e->getMessage());
+        }
+    }
+
+    private function checkIfIsFreeShipping()
+    {
+        $isActive = $this->_mienvioHelper->isFreeShipping();
+        if (!$isActive) {
+            return false;
+        }else{
+            return true;
+        }
+    }
+
+
+    private  function parseServiceLevel($serviceLevel){
+        $parsed = '';
+        switch ($serviceLevel) {
+            case 'estandar':
+                $parsed = 'Estándar';
+                break;
+            case 'express':
+                $parsed = 'Express';
+                break;
+            case 'saver':
+                $parsed = 'Saver';
+                break;
+            case 'express_plus':
+                $parsed = 'Express Plus';
+                break;
+            case 'economy':
+                $parsed = 'Economy';
+                break;
+            case 'priority':
+                $parsed = 'Priority';
+                break;
+            case 'worlwide_usa':
+                $parsed = 'World Wide USA';
+                break;
+            case 'worldwide_usa':
+                $parsed = 'World Wide USA';
+                break;
+            case 'regular':
+                $parsed = 'Regular';
+                break;
+            case 'regular_mx':
+                $parsed = 'Regular MX';
+                break;
+            case 'BE_priority':
+                $parsed = 'Priority';
+                break;
+            case 'flex':
+                $parsed = 'Flex';
+                break;
+            case 'scheduled':
+                $parsed = 'Programado';
+                break;
+            default:
+                $parsed = $serviceLevel;
+        }
+
+        return $parsed;
+
+    }
+
+
+    private  function parseReverseServiceLevel($serviceLevel){
+        $parsed = '';
+        switch ($serviceLevel) {
+            case 'Estándar' :
+                $parsed = 'estandar';
+                break;
+            case 'Express' :
+                $parsed = 'express';
+                break;
+            case 'Saver' :
+                $parsed = 'saver';
+                break;
+            case 'Express Plus' :
+                $parsed = 'express_plus';
+                break;
+            case 'Economy' :
+                $parsed = 'economy';
+                break;
+            case 'Priority' :
+                $parsed = 'priority';
+                break;
+            case 'World Wide USA' :
+                $parsed = 'worlwide_usa';
+                break;
+            case 'World Wide USA' :
+                $parsed = 'worldwide_usa';
+                break;
+            case 'Regular' :
+                $parsed = 'regular';
+                break;
+            case 'Regular MX' :
+                $parsed = 'regular_mx';
+                break;
+            case 'Priority' :
+                $parsed = 'BE_priority';
+                break;
+            case 'Flex' :
+                $parsed = 'flex';
+                break;
+            case 'Programado' :
+                $parsed = 'scheduled';
+                break;
+            default:
+                $parsed = $serviceLevel;
+        }
+
+        return $parsed;
+
     }
 }

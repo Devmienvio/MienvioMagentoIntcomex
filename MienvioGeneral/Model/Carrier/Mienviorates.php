@@ -2,14 +2,10 @@
 namespace MienvioMagento\MienvioGeneral\Model\Carrier;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Framework\DataObject;
 use Magento\Shipping\Model\Carrier\AbstractCarrier;
 use Magento\Shipping\Model\Carrier\CarrierInterface;
-use Magento\Shipping\Model\Config;
 use Magento\Shipping\Model\Rate\ResultFactory;
-use Magento\Store\Model\ScopeInterface;
 use Magento\Quote\Model\Quote\Address\RateResult\ErrorFactory;
-use Magento\Quote\Model\Quote\Address\RateResult\Method;
 use Magento\Quote\Model\Quote\Address\RateResult\MethodFactory;
 use Magento\Quote\Model\Quote\Address\RateRequest;
 use Psr\Log\LoggerInterface;
@@ -24,8 +20,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      * @var \Magento\Directory\Helper\Data
      */
     private $directoryHelper;
+    private $quoteRepository;
 
-    const LEVEL_1_COUNTRIES = ['PE', 'CL'];
+    const LEVEL_1_COUNTRIES = ['PE', 'CL','CO','GT'];
 
     /**
      * Defines if quote endpoint will be used at rates
@@ -92,6 +89,21 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     }
 
     /**
+     * Checks if mienvio's configuration is ready
+     *
+     * @return boolean
+     */
+    private function checkIfIsFreeShipping()
+    {
+        $isActive = $this->_mienvioHelper->isFreeShipping();
+        if (!$isActive) {
+            return false;
+        }else{
+            return true;
+        }
+    }
+
+    /**
      * Process full street string and retrieves street and suburb
      *
      * @param  string $fullStreet
@@ -128,14 +140,32 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     public function collectRates(RateRequest $request)
     {
+
+        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        $cart = $objectManager->get('\Magento\Checkout\Model\Cart');
+        $shippingAddress = $cart->getQuote()->getShippingAddress();
+
+        $freeShippingSet = $shippingAddress->getFreeShipping();
+
+
+
+        $shippingAddress = $cart->getQuote()->getShippingAddress();
         $rateResponse = $this->_rateResultFactory->create();
         $apiKey = $this->_mienvioHelper->getMienvioApi();
+        if($apiKey == null){
+            $apiKey = $this->_mienvioHelper->getMienvioApiRedundant();
+        }
         $baseUrl =  $this->_mienvioHelper->getEnvironment();
         $createShipmentUrl  = $baseUrl . 'api/shipments';
         $quoteShipmentUrl   = $baseUrl . 'api/shipments/$shipmentId/rates';
         $getPackagesUrl     = $baseUrl . 'api/packages';
         $createAddressUrl   = $baseUrl . 'api/addresses';
         $createQuoteUrl     = $baseUrl . 'api/quotes';
+
+        $itemsMeasures = $this->checkVirtualProducts($request->getAllItems());
+        if($itemsMeasures){
+            return $rateResponse;
+        }
 
         try {
             /* ADDRESS CREATION */
@@ -147,8 +177,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $fullAddressProcessed = $this->processFullAddress($destFullStreet);
             $destCity       = $request->getDestCity();
             $destPostcode   = $request->getDestPostcode();
-
-            $fromData = $this->createAddressDataStr(
+            $fromData = $this->createAddressDataStr('from',
                 "MIENVIO DE MEXICO",
                 $this->_mienvioHelper->getOriginStreet(),
                 $this->_mienvioHelper->getOriginStreet2(),
@@ -156,23 +185,28 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 "ventas@mienvio.mx",
                 "5551814040",
                 '',
-                $destCountryId
+                $destCountryId,
+                $this->_mienvioHelper->getOriginCity()
             );
 
-            $toData = $this->createAddressDataStr(
+            $toData = $this->createAddressDataStr('to',
                 'usuario temporal',
-                substr($fullAddressProcessed['street'], 0, 30),
-                substr($fullAddressProcessed['suburb'], 0, 30),
+                'calle temporal',
+                $fullAddressProcessed['suburb'],
                 $destPostcode,
                 "ventas@mienvio.mx",
                 "5551814040",
-                substr($fullAddressProcessed['suburb'], 0, 30),
-                $destCountryId
+                $fullAddressProcessed['suburb'],
+                $destCountryId,
+                $destRegion,
+                $destRegionCode,
+                $destCity
             );
+
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
-
+            $this->_logger->debug('URL MIENVIO CREATE ADDRESS', ['url' => $createAddressUrl]);
             $this->_curl->post($createAddressUrl, json_encode($fromData));
             $addressFromResp = json_decode($this->_curl->getBody());
             $this->_logger->debug($this->_curl->getBody());
@@ -196,21 +230,37 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                     $createShipmentUrl, $options, $packageValue, $fromZipCode);
             }
 
+
             foreach ($rates as $rate) {
                 $this->_logger->debug('rate_id');
-                $methodId = $rate['servicelevel'] . '-' . $rate['courier'];
+                $methodId = $this->parseReverseServiceLevel($rate['servicelevel']) . '-' . $rate['courier'];
                 $this->_logger->debug((string)$methodId);
                 $this->_logger->debug(strval($rate['id']));
+                $this->_logger->debug(serialize($rate));
 
                 $method = $this->_rateMethodFactory->create();
                 $method->setCarrier($this->getCarrierCode());
                 $method->setCarrierTitle($rate['courier']);
                 $method->setMethod((string)$methodId);
-                $method->setMethodTitle($rate['servicelevel']);
-                $method->setPrice($rate['cost']);
-                $method->setCost($rate['cost']);
+                if(isset($rate['istradein'])){
+                    $method->setCode($rate['istradein']);
+                }else{
+                    $method->setCode('');
+                }
+
+                $method->setMethodTitle($rate['servicelevel'].' - '.$rate['duration_terms']);
+                if($freeShippingSet){
+                    $method->setPrice(0);
+                    $method->setCost(0);
+                }else{
+                    $method->setPrice($rate['cost']);
+                    $method->setCost($rate['cost']);
+                }
+
                 $rateResponse->append($method);
             }
+
+
         } catch (\Exception $e) {
             $this->_logger->debug("Rates Exception");
             $this->_logger->debug($e);
@@ -238,6 +288,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         ];
 
         $this->_logger->debug('Creating quote (mienviorates)', ['request' => json_encode($quoteReqData)]);
+        $this->_logger->debug('URL MIENVIO', ['url' => $createQuoteUrl]);
         $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
         $quoteResponse = json_decode($this->_curl->getBody());
         $this->_logger->debug('Creating quote (mienviorates)', ['response' => $this->_curl->getBody()]);
@@ -245,14 +296,35 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         if (isset($quoteResponse->{'rates'})) {
             $rates = [];
 
-            foreach ($quoteResponse->{'rates'} as $rate) {
-                $rates[] = [
-                    'courier'      => $rate->{'provider'},
-                    'servicelevel' => $rate->{'servicelevel'},
-                    'id'           => $quoteResponse->{'quote_id'},
-                    'cost'         => $rate->{'amount'},
-                    'key'          => $rate->{'provider'} . '-' . $rate->{'servicelevel'}
-                ];
+            foreach ($quoteResponse->{'rates'} as $key => $rate) {
+                if($rate->{'servicelevel'} == 'worlwide_usa' || $rate->{'servicelevel'} == 'worldwide_usa'){
+
+                }else{
+                    if(isset($rate->{'istradein'})){
+                        $rates[] = [
+                            'courier'      => $rate->{'provider'},
+                            'servicelevel' => $this->parseServiceLevel($rate->{'servicelevel'}),
+                            'id'           => $quoteResponse->{'quote_id'},
+                            'cost'         => $rate->{'amount'},
+                            'key'          => $rate->{'provider'} . '-' . $rate->{'servicelevel'},
+                            'duration_terms' => $rate->{'duration_terms'},
+                            'istradein' =>  $rate->{'istradein'}
+                        ];
+                    }else{
+                        $rates[] = [
+                            'courier'      => $rate->{'provider'},
+                            'servicelevel' => $this->parseServiceLevel($rate->{'servicelevel'}),
+                            'id'           => $quoteResponse->{'quote_id'},
+                            'cost'         => $rate->{'amount'},
+                            'key'          => $rate->{'provider'} . '-' . $rate->{'servicelevel'},
+                            'duration_terms' => $rate->{'duration_terms'}
+                        ];
+                    }
+
+                }
+
+
+
             }
 
             return $rates;
@@ -264,6 +336,107 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             'id'           => $quoteResponse->{'quote_id'},
             'cost'         => $quoteResponse->{'cost'}
         ]];
+    }
+
+    private  function parseServiceLevel($serviceLevel){
+        $parsed = '';
+        switch ($serviceLevel) {
+            case 'estandar':
+                $parsed = 'Estándar';
+                break;
+            case 'express':
+                $parsed = 'Express';
+                break;
+            case 'saver':
+                $parsed = 'Saver';
+                break;
+            case 'express_plus':
+                $parsed = 'Express Plus';
+                break;
+            case 'economy':
+                $parsed = 'Economy';
+                break;
+            case 'priority':
+                $parsed = 'Priority';
+                break;
+            case 'worlwide_usa':
+                $parsed = 'World Wide USA';
+                break;
+            case 'worldwide_usa':
+                $parsed = 'World Wide USA';
+                break;
+            case 'regular':
+                $parsed = 'Regular';
+                break;
+            case 'regular_mx':
+                $parsed = 'Regular MX';
+                break;
+            case 'BE_priority':
+                $parsed = 'Priority';
+                break;
+            case 'flex':
+                $parsed = 'Flex';
+                break;
+            case 'scheduled':
+                $parsed = 'Programado';
+                break;
+            default:
+                $parsed = $serviceLevel;
+        }
+
+        return $parsed;
+
+    }
+
+
+    private  function parseReverseServiceLevel($serviceLevel){
+        $parsed = '';
+        switch ($serviceLevel) {
+            case 'Estándar' :
+                $parsed = 'estandar';
+                break;
+            case 'Express' :
+                $parsed = 'express';
+                break;
+            case 'Saver' :
+                $parsed = 'saver';
+                break;
+            case 'Express Plus' :
+                $parsed = 'express_plus';
+                break;
+            case 'Economy' :
+                $parsed = 'economy';
+                break;
+            case 'Priority' :
+                $parsed = 'priority';
+                break;
+            case 'World Wide USA' :
+                $parsed = 'worlwide_usa';
+                break;
+            case 'World Wide USA' :
+                $parsed = 'worldwide_usa';
+                break;
+            case 'Regular' :
+                $parsed = 'regular';
+                break;
+            case 'Regular MX' :
+                $parsed = 'regular_mx';
+                break;
+            case 'Priority' :
+                $parsed = 'BE_priority';
+                break;
+            case 'Flex' :
+                $parsed = 'flex';
+                break;
+            case 'Programado' :
+                $parsed = 'scheduled';
+                break;
+            default:
+                $parsed = $serviceLevel;
+        }
+
+        return $parsed;
+
     }
 
     /**
@@ -362,6 +535,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         ];
 
         $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
+        $this->_logger->debug('URL MIENVIO', ['url' => $createQuoteUrl]);
         $quoteResponse = json_decode($this->_curl->getBody());
 
         $method = $this->_rateMethodFactory->create();
@@ -389,12 +563,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      * @param  string $countryCode
      * @return string
      */
-    private function createAddressDataStr($name, $street, $street2, $zipcode, $email, $phone, $reference = '.', $countryCode)
+    private function createAddressDataStr($type,$name, $street, $street2, $zipcode, $email, $phone, $reference = '.', $countryCode,$destRegion = null, $destRegionCode = null, $destCity = null)
     {
-        $street = substr($street, 0, 35);
-        $street2 = substr($street2, 0, 35);
-        $name = substr($name, 0, 80);
-        $phone = substr($phone, 0, 20);
+
 
         $data = [
             'object_type' => 'PURCHASE',
@@ -403,16 +574,79 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             'street2' => $street2,
             'email' => $email,
             'phone' => $phone,
-            'reference' => $reference
+            'reference' => '',
+            'country' => $countryCode
         ];
 
-        if ($countryCode === 'MX') {
-            $data['zipcode'] = $zipcode;
-        } else {
-            $data['level_1'] = $zipcode;
-        }
+        $location = $this->_mienvioHelper->getLocation();
+        $this->_logger->debug('LOCATION: '.$location);
+        $this->_logger->debug('Country: '.$countryCode);
+        $this->_logger->debug('STREET2: '.$street2);
+        $this->_logger->debug('DestRegion: '.$destRegion);
+        $this->_logger->debug('DestRegionCode: '.$destRegionCode);
+        $this->_logger->debug('DesCity: '.$destCity);
 
+        if($location == 'street2' ){
+
+            if ($countryCode === 'MX') {
+                $data['zipcode'] = $zipcode;
+            } elseif ($countryCode === 'PA' || $countryCode === 'CO'){
+                if($type === 'from'){
+                    $data['level_1'] = $street2;
+                    $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                }
+                if($type === 'to'){
+                    if($destCity != ''){
+                        $data['level_1'] = $destCity;
+                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                    }elseif ($destCity != ''){
+                        $data['level_1'] = $destCity;
+                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                    }
+                }
+
+            } else {
+                $data['level_1'] = $street2;
+                $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+            }
+
+
+
+        }else if($location == 'zipcode' ){
+            if ($countryCode === 'MX') {
+                $data['zipcode'] = $zipcode;
+            } else {
+                $data['level_1'] = $zipcode;
+                $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+            }
+
+        }else{
+            if ($countryCode === 'MX') {
+                $data['zipcode'] = $zipcode;
+            } else {
+                $data['level_1'] = $zipcode;
+                $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+            }
+        }
+        $this->_logger->debug('DATA COMPLETE: '.serialize($data));
         return $data;
+    }
+
+    /*
+     * Valida que los campos de ciudad, recgion y código de región no sean vacios.
+     * Se implementa esta función ya que magento dependiendo de la configuraciones de
+     * dirección de origen y destnio, cambia el campo donde se valida el nivel 2 de la direccion.
+     *
+     */
+    private function getLevel2FromAddress ($destRegion,$destRegionCode,$destCity)
+    {
+        $level2 = $destCity;
+        if($level2 == null){
+            $level2 = $destRegion;
+            if($level2 == null)
+                $level2 = $destRegionCode;
+        }
+        return $level2;
     }
 
     /**
@@ -435,11 +669,20 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $productName = $item->getName();
             $orderDescription .= $productName . ' ';
             $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
+            $dimensions = $this->getDimensionItems($product);
 
-            $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
-            $width  = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
-            $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
-            $weight = $this->convertWeight($product->getData('weight'));
+            if(is_array($dimensions)){
+                $length = $dimensions['length'];
+                $width  = $dimensions['width'];
+                $height = $dimensions['height'];
+                $weight = $dimensions['weight'];
+            }else{
+                $length = 2;
+                $width  = 2;
+                $height = 2;
+                $weight = 1;
+            }
+
 
             $orderLength += $length;
             $orderWidth  += $width;
@@ -470,6 +713,100 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         ];
     }
 
+    private function checkVirtualProducts($items){
+        try{
+            foreach ($items as $item) {
+                $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+                $productName = $item->getName();
+                $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
+
+                if($product->getData('ts_dimensions_length') != 0 && $product->getData('ts_dimensions_length') != null) {
+                    return false;
+                }else if($product->getData('length') != 0 && $product->getData('length') != null){
+                    return false;
+                }else{
+                    return true;
+                }
+            }
+        } catch (\Exception $e) {
+            $this->_logger->debug("Validate Virtual products Exception");
+            $this->_logger->debug($e);
+        }
+        return true;
+    }
+
+    private function getDimensionItems($product){
+        $length = 0;
+        $width = 0;
+        $height = 0;
+        $weight = 0;
+        if($product->getData('ts_dimensions_length') != 0 && $product->getData('ts_dimensions_length') != null) {
+            if ($this->_mienvioHelper->getMeasures() === 1) {
+                $length = $product->getData('ts_dimensions_length');
+                $width = $product->getData('ts_dimensions_width');
+                $height = $product->getData('ts_dimensions_height');
+                $weight = $product->getData('weight');
+
+
+            } else {
+                $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
+                $width = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
+                $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
+                $weight = $this->convertWeight($product->getData('weight'));
+            }
+        }else if($product->getAttribute('length') != 0 && $product->getAttribute('length') != null){
+            if ($this->_mienvioHelper->getMeasures() === 1) {
+                $length = $product->getAttribute('length');
+                $width = $product->getAttribute('width');
+                $height = $product->getAttribute('height');
+                $weight = $product->getAttribute('weight');
+            } else {
+                $length = $this->convertInchesToCms($product->getAttribute('length'));
+                $width = $this->convertInchesToCms($product->getAttribute('width'));
+                $height = $this->convertInchesToCms($product->getAttribute('height'));
+                $weight = $this->convertWeight($product->getAttribute('weight'));
+            }
+        }else if($product->getData('length') != 0 && $product->getData('length') != null){
+            if ($this->_mienvioHelper->getMeasures() === 1) {
+                $length = $product->getData('length');
+                $width = $product->getData('width');
+                $height = $product->getData('height');
+                $weight = $product->getData('weight');
+
+
+            } else {
+                $length = $this->convertInchesToCms($product->getData('length'));
+                $width = $this->convertInchesToCms($product->getData('width'));
+                $height = $this->convertInchesToCms($product->getData('height'));
+                $weight = $this->convertWeight($product->getData('weight'));
+            }
+        }else{
+            $length = 0.5;
+            $width = 0.5;
+            $height = 0.5;
+            $weight = 0.2;
+            $this->_logger->debug('SHIPMENT WITH ITEM MEASURES IN 0, only for testing porpuses', ['ITEMSSSSS' => serialize($product->getData())]);
+
+
+            try{
+                $length = $product->getAttributeText('length');
+                $width = $product->getAttributeText('width');
+                $height = $product->getAttributeText('height');
+                $this->_logger->debug('SHIPMENT PRODUCT ATTRIBUTE TEXT', ['ITEM' => serialize($product->getAttributeText('length'))]);
+
+            } catch (\Exception $e) {
+                $this->_logger->debug("Measures Exception");
+                $this->_logger->debug($e);
+            }
+        }
+        return array(
+            'length' => $length,
+            'width' => $width,
+            'height' => $height,
+            'weight' => $weight
+        );
+    }
+
     /**
      * Calculates volumetric weight of given measures
      *
@@ -482,7 +819,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     {
         $volumetricWeight = round(((1 * $length * $width * $height) / 5000), 4);
 
-		return $volumetricWeight;
+        return $volumetricWeight;
     }
 
     /**
@@ -579,4 +916,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             'qty' => $qty
         ];
     }
+
+
 }
