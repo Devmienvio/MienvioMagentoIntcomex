@@ -69,7 +69,7 @@ class Data extends AbstractHelper
         $result = '';
         switch ($env){
             case 0://Production
-                $result = 'https://production.mienvio.mx/';
+                $result = 'https://app.mienvio.mx/';
                 break;
             case 1: //Sandbox
                 $result = 'https://sandbox.mienvio.mx/';

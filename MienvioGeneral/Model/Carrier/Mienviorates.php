@@ -111,6 +111,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     private function processFullAddress($fullStreet)
     {
+
+        $this->_logger->debug('ProcessFullAddress', ['FullAddress' => $fullStreet]);
+
         $response = [
             'street' => '.',
             'suburb' => '.'
@@ -121,11 +124,23 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $count = count($fullStreetArray);
 
             if ($count > 0 && $fullStreetArray[0] !== false) {
-                $response['street'] = $fullStreetArray[0];
+                if($count > 1){
+                    $response['street'] = $fullStreetArray[0];
+                }
             }
 
             if ($count > 1 && $fullStreetArray[1] !== false) {
+
                 $response['suburb'] = $fullStreetArray[1];
+            }
+
+            /*
+             * Caso para cuando solamente viene una sola linea de Direccion,
+             * es decir la dirección Street uno, no es colocalda por el usuario.
+             */
+
+            if ($count === 1){
+                $response['suburb'] = $fullStreetArray[0];
             }
         }
 
@@ -161,6 +176,19 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $getPackagesUrl     = $baseUrl . 'api/packages';
         $createAddressUrl   = $baseUrl . 'api/addresses';
         $createQuoteUrl     = $baseUrl . 'api/quotes';
+
+        /*
+         * Section to grab the filter_list field
+         * Expected value | string
+         * Example value    | "DA8H,ZA8H"
+         */
+
+        $filterList = null;
+
+        $writer = new \Zend\Log\Writer\Stream(BP . '/var/log/mienvioRates.log');
+        $logger = new \Zend\Log\Logger();
+        $logger->addWriter($writer);
+        $this->_logger = $logger;
 
         $itemsMeasures = $this->checkVirtualProducts($request->getAllItems());
         if($itemsMeasures){
@@ -222,7 +250,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
                 $rates = $this->quoteShipmentViaQuoteEndpoint(
-                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl
+                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl,$filterList
                 );
             } else {
                 $rates = $this->quoteShipment(
@@ -278,13 +306,14 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      * @param  string $createQuoteUrl
      * @return string
      */
-    private function quoteShipmentViaQuoteEndpoint($items, $addressFromId, $addressToId, $createQuoteUrl)
+    private function quoteShipmentViaQuoteEndpoint($items, $addressFromId, $addressToId, $createQuoteUrl,$filterList = null)
     {
         $quoteReqData = [
             'items'         => $items,
             'address_from'  => $addressFromId,
             'address_to'    => $addressToId,
-            'shop_url'     => $this->_storeManager->getStore()->getUrl()
+            'shop_url'     => $this->_storeManager->getStore()->getUrl(),
+            'filter_list' => $filterList
         ];
 
         $this->_logger->debug('Creating quote (mienviorates)', ['request' => json_encode($quoteReqData)]);
@@ -590,18 +619,18 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             if ($countryCode === 'MX') {
                 $data['zipcode'] = $zipcode;
-            } elseif ($countryCode === 'PA' || $countryCode === 'CO'){
+            } elseif ($countryCode === 'CO'){
                 if($type === 'from'){
                     $data['level_1'] = $street2;
-                    $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                    $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity,$countryCode);
                 }
                 if($type === 'to'){
                     if($destCity != ''){
                         $data['level_1'] = $destCity;
-                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity,$countryCode);
                     }elseif ($destCity != ''){
                         $data['level_1'] = $destCity;
-                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity,$countryCode);
                     }
                 }
 
@@ -633,19 +662,30 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     }
 
     /*
-     * Valida que los campos de ciudad, recgion y código de región no sean vacios.
+     * Valida que los campos de ciudad, region y código de región no sean vacios.
      * Se implementa esta función ya que magento dependiendo de la configuraciones de
-     * dirección de origen y destnio, cambia el campo donde se valida el nivel 2 de la direccion.
+     * dirección de origen y destino, cambia el campo donde se valida el nivel 2 de la direccion.
      *
+     * Se añade la validación para revisar que el el nivel 2 se este tomando de acuerdo a la inversa desde region a ciudad.
      */
-    private function getLevel2FromAddress ($destRegion,$destRegionCode,$destCity)
+    private function getLevel2FromAddress ($destRegion,$destRegionCode,$destCity,$country = null)
     {
-        $level2 = $destCity;
-        if($level2 == null){
-            $level2 = $destRegion;
-            if($level2 == null)
-                $level2 = $destRegionCode;
+        if($country === 'CO'){
+            $level2 = $destRegionCode;
+            if($level2 == null){
+                $level2 = $destRegion;
+                if($level2 == null)
+                    $level2 = $destCity;
+            }
+        }else{
+            $level2 = $destCity;
+            if($level2 == null){
+                $level2 = $destRegion;
+                if($level2 == null)
+                    $level2 = $destRegionCode;
+            }
         }
+
         return $level2;
     }
 
@@ -717,22 +757,29 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         try{
             foreach ($items as $item) {
                 $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-                $productName = $item->getName();
-                $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
 
-                if($product->getData('ts_dimensions_length') != 0 && $product->getData('ts_dimensions_length') != null) {
-                    return false;
-                }else if($product->getData('length') != 0 && $product->getData('length') != null){
-                    return false;
+                $productSku = $item->getSku();
+                $productRepository = $objectManager->get('\Magento\Catalog\Model\ProductRepository');
+                $product = $productRepository->get($productSku);
+
+                if(is_object($product) && $product->getId() > 0){
+                    if($product->getData('ts_dimensions_length') != 0 && $product->getData('ts_dimensions_length') != null) {
+                        return false;
+                    }else if($product->getData('length') != 0 && $product->getData('length') != null){
+                        return false;
+                    }else{
+                        return true;
+                    }
                 }else{
-                    return true;
+                    return false;
                 }
+
             }
         } catch (\Exception $e) {
             $this->_logger->debug("Validate Virtual products Exception");
             $this->_logger->debug($e);
         }
-        return true;
+        return false;
     }
 
     private function getDimensionItems($product){

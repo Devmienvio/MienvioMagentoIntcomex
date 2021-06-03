@@ -591,18 +591,18 @@ class ObserverSuccess implements ObserverInterface
 
             if ($countryCode === 'MX') {
                 $data['zipcode'] = $zipcode;
-            } elseif ($countryCode === 'PA' || $countryCode === 'CO'){
+            } elseif ($countryCode === 'CO'){
                 if($type === 'from'){
                     $data['level_1'] = $street2;
-                    $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                    $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity,$countryCode);
                 }
                 if($type === 'to'){
                     if($destCity != ''){
                         $data['level_1'] = $destCity;
-                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity,$countryCode);
                     }elseif ($street2 != ''){
                         $data['level_1'] = $street2;
-                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity,$countryCode);
                     }
                 }
 
@@ -634,19 +634,30 @@ class ObserverSuccess implements ObserverInterface
     }
 
     /*
-    * Valida que los campos de ciudad, recgion y código de región no sean vacios.
-    * Se implementa esta función ya que magento dependiendo de la configuraciones de
-    * dirección de origen y destnio, cambia el campo donde se valida el nivel 2 de la direccion.
-    *
-    */
-    private function getLevel2FromAddress ($destRegion,$destRegionCode,$destCity)
+     * Valida que los campos de ciudad, region y código de región no sean vacios.
+     * Se implementa esta función ya que magento dependiendo de la configuraciones de
+     * dirección de origen y destino, cambia el campo donde se valida el nivel 2 de la direccion.
+     *
+     * Se añade la validación para revisar que el el nivel 2 se este tomando de acuerdo a la inversa desde region a ciudad.
+     */
+    private function getLevel2FromAddress ($destRegion,$destRegionCode,$destCity,$country = null)
     {
-        $level2 = $destCity;
-        if($level2 == null){
-            $level2 = $destRegion;
-            if($level2 == null)
-                $level2 = $destRegionCode;
+        if($country === 'CO'){
+            $level2 = $destRegionCode;
+            if($level2 == null){
+                $level2 = $destRegion;
+                if($level2 == null)
+                    $level2 = $destCity;
+            }
+        }else{
+            $level2 = $destCity;
+            if($level2 == null){
+                $level2 = $destRegion;
+                if($level2 == null)
+                    $level2 = $destRegionCode;
+            }
         }
+
         return $level2;
     }
 
