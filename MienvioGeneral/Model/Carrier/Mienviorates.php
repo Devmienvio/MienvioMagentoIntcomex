@@ -183,17 +183,14 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
          * Example value    | "DA8H,ZA8H"
          */
 
-        $filterList = null;
+        $filterList = '';
 
         $writer = new \Zend\Log\Writer\Stream(BP . '/var/log/mienvioRates.log');
         $logger = new \Zend\Log\Logger();
         $logger->addWriter($writer);
         $this->_logger = $logger;
 
-        $itemsMeasures = $this->checkVirtualProducts($request->getAllItems());
-        if($itemsMeasures){
-            return $rateResponse;
-        }
+
 
         try {
             /* ADDRESS CREATION */
@@ -787,6 +784,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $width = 0;
         $height = 0;
         $weight = 0;
+
         if($product->getData('ts_dimensions_length') != 0 && $product->getData('ts_dimensions_length') != null) {
             if ($this->_mienvioHelper->getMeasures() === 1) {
                 $length = $product->getData('ts_dimensions_length');
@@ -813,6 +811,21 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $height = $this->convertInchesToCms($product->getAttribute('height'));
                 $weight = $this->convertWeight($product->getAttribute('weight'));
             }
+        }else if($product->getData('shipping_lengthcarton') != 0 && $product->getData('shipping_lengthcarton') != null){
+            if ($this->_mienvioHelper->getMeasures() === 1) {
+                $length = $product->getData('shipping_lengthcarton');
+                $width = $product->getData('shipping_widthcarton');
+                $height = $product->getData('shipping_heightcarton');
+                $weight = $product->getData('shipping_weightcarton');
+
+
+            } else {
+                $length = $this->convertInchesToCms($product->getData('shipping_lengthcarton'));
+                $width = $this->convertInchesToCms($product->getData('shipping_widthcarton'));
+                $height = $this->convertInchesToCms($product->getData('shipping_heightcarton'));
+                $weight = $this->convertWeight($product->getData('shipping_weightcarton'));
+
+            }
         }else if($product->getData('length') != 0 && $product->getData('length') != null){
             if ($this->_mienvioHelper->getMeasures() === 1) {
                 $length = $product->getData('length');
@@ -832,19 +845,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $width = 0.5;
             $height = 0.5;
             $weight = 0.2;
-            $this->_logger->debug('SHIPMENT WITH ITEM MEASURES IN 0, only for testing porpuses', ['ITEMSSSSS' => serialize($product->getData())]);
+            $this->_logger->debug('This item will be trated as a kit with measures in 0.', ['item info' => serialize($product->getData())]);
 
-
-            try{
-                $length = $product->getAttributeText('length');
-                $width = $product->getAttributeText('width');
-                $height = $product->getAttributeText('height');
-                $this->_logger->debug('SHIPMENT PRODUCT ATTRIBUTE TEXT', ['ITEM' => serialize($product->getAttributeText('length'))]);
-
-            } catch (\Exception $e) {
-                $this->_logger->debug("Measures Exception");
-                $this->_logger->debug($e);
-            }
         }
         return array(
             'length' => $length,

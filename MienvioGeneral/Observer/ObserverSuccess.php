@@ -310,7 +310,7 @@ class ObserverSuccess implements ObserverInterface
      */
     private function getOrderDefaultMeasures($items)
     {
-        //$this->_logger->debug('Items PREUBA 22 FEBRERO', ['data' => $items]);
+        
         $packageVolWeight = 0;
         $orderLength = 0;
         $orderWidth = 0;
@@ -374,6 +374,7 @@ class ObserverSuccess implements ObserverInterface
         $width = 0;
         $height = 0;
         $weight = 0;
+
         if($product->getData('ts_dimensions_length') != 0 && $product->getData('ts_dimensions_length') != null) {
             if ($this->_mienvioHelper->getMeasures() === 1) {
                 $length = $product->getData('ts_dimensions_length');
@@ -400,6 +401,21 @@ class ObserverSuccess implements ObserverInterface
                 $height = $this->convertInchesToCms($product->getAttribute('height'));
                 $weight = $this->convertWeight($product->getAttribute('weight'));
             }
+        }else if($product->getData('shipping_lengthcarton') != 0 && $product->getData('shipping_lengthcarton') != null){
+            if ($this->_mienvioHelper->getMeasures() === 1) {
+                $length = $product->getData('shipping_lengthcarton');
+                $width = $product->getData('shipping_widthcarton');
+                $height = $product->getData('shipping_heightcarton');
+                $weight = $product->getData('shipping_weightcarton');
+
+
+            } else {
+                $length = $this->convertInchesToCms($product->getData('shipping_lengthcarton'));
+                $width = $this->convertInchesToCms($product->getData('shipping_widthcarton'));
+                $height = $this->convertInchesToCms($product->getData('shipping_heightcarton'));
+                $weight = $this->convertWeight($product->getData('shipping_weightcarton'));
+
+            }
         }else if($product->getData('length') != 0 && $product->getData('length') != null){
             if ($this->_mienvioHelper->getMeasures() === 1) {
                 $length = $product->getData('length');
@@ -419,19 +435,8 @@ class ObserverSuccess implements ObserverInterface
             $width = 0.5;
             $height = 0.5;
             $weight = 0.2;
-            $this->_logger->debug('SHIPMENT WITH ITEM MEASURES IN 0, only for testing porpuses', ['ITEMSSSSS' => serialize($product->getData())]);
+            $this->_logger->debug('This item will be trated as a kit with measures in 0.', ['item info' => serialize($product->getData())]);
 
-
-            try{
-                $length = $product->getAttributeText('length');
-                $width = $product->getAttributeText('width');
-                $height = $product->getAttributeText('height');
-                $this->_logger->debug('SHIPMENT PRODUCT ATTRIBUTE TEXT', ['ITEM' => serialize($product->getAttributeText('length'))]);
-
-            } catch (\Exception $e) {
-                $this->_logger->debug("Measures Exception");
-                $this->_logger->debug($e);
-            }
         }
         return array(
             'length' => $length,
@@ -643,11 +648,11 @@ class ObserverSuccess implements ObserverInterface
     private function getLevel2FromAddress ($destRegion,$destRegionCode,$destCity,$country = null)
     {
         if($country === 'CO'){
-            $level2 = $destCity;
+            $level2 = $destRegionCode;
             if($level2 == null){
                 $level2 = $destRegion;
                 if($level2 == null)
-                    $level2 = $destRegionCode;
+                    $level2 = $destCity;
             }
         }else{
             $level2 = $destCity;
