@@ -16,6 +16,8 @@ class Data extends AbstractHelper
     const XML_PATH_IS_ENABLE_MIENVIO = 'carriers/mienviocarrier/active';
     const XML_PATH_ENVIRONMENT = 'carriers/mienviocarrier/environment';
     const XML_MEASURES = 'carriers/mienviocarrier/measures';
+    const XML_ESD_CAT = 'carriers/mienviocarrier/esdcat';
+    const XML_FILTER_CHEAPERCOST = 'carriers/mienviocarrier/filtercheapercost';
     const XML_PATH_FREE_SHIPPING = 'carriers/mienviocarrier/freeshipping';
     const XML_PATH_TITLE_METHOD_FREE = 'carriers/mienviocarrier/titlemethodfree';
     const XML_PATH_SERVICE_LEVEL = 'carriers/mienviocarrier/servicelevel';
@@ -61,6 +63,16 @@ class Data extends AbstractHelper
     public function getLocation($storeId = null)
     {
         return $this->getConfigValue(self::XML_PATH_LOCATION , $storeId);
+    }
+
+    public function getEsdList($storeId = null)
+    {
+        return $this->getConfigValue(self::XML_ESD_CAT, $storeId);
+    }
+
+    public function getFilterListByCost($storeId = null)
+    {
+        return $this->getConfigValue(self::XML_FILTER_CHEAPERCOST, $storeId);
     }
 
     public function getEnvironment($storeId = null)

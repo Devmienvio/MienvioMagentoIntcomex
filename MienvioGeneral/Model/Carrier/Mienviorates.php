@@ -229,6 +229,10 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             );
 
 
+            $esdCategoryList = $this->_mienvioHelper->getEsdList();
+            $filterByCost = $this->_mienvioHelper->getFilterListByCost();
+            $this->_logger->debug('ESD AND FILTERLIST', ['esd' => $esdCategoryList,'filter'=>$filterByCost]);
+
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
             $this->_logger->debug('URL MIENVIO CREATE ADDRESS', ['url' => $createAddressUrl]);
@@ -243,6 +247,28 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $addressToId = $addressToResp->{'address'}->{'object_id'};
 
             $itemsMeasures = $this->getOrderDefaultMeasures($request->getAllItems());
+
+            if(is_string($itemsMeasures)){
+
+                if($itemsMeasures === 'EDS Product'){
+                    $lang = $this->getLanguageFromUrl();
+                    $methodTitle = "Digital Product - Este producto no requiere envío";
+                    if($lang === "eng"){
+                        $methodTitle = "Digital Product - This Product does not require shipment";
+                    }
+                    $method = $this->_rateMethodFactory->create();
+                    $method->setCarrier($this->getCarrierCode());
+                    $method->setCarrierTitle("Digital");
+                    $method->setMethod("digital-product");
+                    $method->setCode('');
+                    $method->setMethodTitle($methodTitle);
+                    $method->setPrice(0);
+                    $method->setCost(0);
+                    $rateResponse->append($method);
+                    return $rateResponse;
+
+                }
+            }
             $packageWeight = $this->convertWeight($request->getPackageWeight());
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
@@ -255,7 +281,10 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                     $createShipmentUrl, $options, $packageValue, $fromZipCode);
             }
 
-
+            if($this->checkIfIsFreeShipping()){
+                $this->_logger->debug('Free shipping is activated, the rates would not be shown');
+                return $rateResponse;
+            }
             foreach ($rates as $rate) {
                 $this->_logger->debug('rate_id');
                 $methodId = $this->parseReverseServiceLevel($rate['servicelevel']) . '-' . $rate['courier'];
@@ -700,12 +729,33 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $orderHeight = 0;
         $orderDescription = '';
         $itemsArr = [];
+        $esdCategoryList = $this->_mienvioHelper->getEsdList();
 
         foreach ($items as $item) {
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
             $productName = $item->getName();
             $orderDescription .= $productName . ' ';
             $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
+
+            $this->_logger->debug("TEST TO CHECK TYPE OF PRODUCT",["typeOfProduct"=>$product->getTypeId()]);
+            $this->_logger->debug("TEST TO CHECK CATEGORYIDS",["typeOfProduct"=>$product->getCategoryIds()]);
+
+            //array $product->getCategoryIds
+
+
+            if($product->getTypeId() === "bundle"){ // bundle true = do no add to quote
+                continue;
+            }
+            $esdCategoryListArr = explode(",",$esdCategoryList);
+            foreach ($esdCategoryListArr as $esdCatValue){
+                $isInCategory = in_array($esdCatValue,$product->getCategoryIds());
+                if($isInCategory){
+                    $this->_logger->debug("ESD product set");
+                    return 'EDS Product';
+                }
+            }
+
+
             $dimensions = $this->getDimensionItems($product);
 
             if(is_array($dimensions)){
@@ -810,6 +860,21 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 $width = $this->convertInchesToCms($product->getAttribute('width'));
                 $height = $this->convertInchesToCms($product->getAttribute('height'));
                 $weight = $this->convertWeight($product->getAttribute('weight'));
+            }
+        }else if($product->getData('shipping_lengtheach') != 0 && $product->getData('shipping_lengtheach') != null){
+            if ($this->_mienvioHelper->getMeasures() === 1) {
+                $length = $product->getData('shipping_lengtheach');
+                $width = $product->getData('shipping_widtheach');
+                $height = $product->getData('shipping_heighteach');
+                $weight = $product->getData('shipping_weighteach');
+
+
+            } else {
+                $length = $this->convertInchesToCms($product->getData('shipping_lengtheach'));
+                $width = $this->convertInchesToCms($product->getData('shipping_widtheach'));
+                $height = $this->convertInchesToCms($product->getData('shipping_heighteach'));
+                $weight = $this->convertWeight($product->getData('shipping_weighteach'));
+
             }
         }else if($product->getData('shipping_lengthcarton') != 0 && $product->getData('shipping_lengthcarton') != null){
             if ($this->_mienvioHelper->getMeasures() === 1) {
@@ -964,6 +1029,17 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             'package' => $chosenPackage,
             'qty' => $qty
         ];
+    }
+
+    private function getLanguageFromUrl(){
+        $url = $this->_storeManager->getStore()->getUrl();
+        if(strpos($url,'-en'))
+            return 'eng';
+
+        if(strpos($url,'-es'))
+            return 'esp';
+
+        return 'esp';
     }
 
 

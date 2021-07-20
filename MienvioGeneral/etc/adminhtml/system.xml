@@ -48,6 +48,17 @@
                     <source_model>MienvioMagento\MienvioGeneral\Model\Config\Source\Measures</source_model>
                 </field>
 
+
+                <field id="esdcat" translate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>ESD CATEGORIES</label>
+                    <comment>Set the list of ids of esd category</comment>
+                </field>
+
+                <field id="filtercheapercost" translate="label" type="text" sortOrder="11" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Filter by Cost</label>
+                    <comment>YES / NO (default NO)</comment>
+                </field>
+
                 <field id="showmethod" translate="label" type="select" sortOrder="80" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>Show Method if Not Applicable</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>

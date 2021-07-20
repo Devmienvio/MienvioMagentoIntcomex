@@ -37,6 +37,7 @@ class ObserverSuccess implements ObserverInterface
         $this->_logger = $logger;
         $this->_mienvioHelper = $helperData;
         $this->_curl = $curl;
+
     }
 
     public function execute(Observer $observer)
@@ -44,10 +45,25 @@ class ObserverSuccess implements ObserverInterface
         /** @var \Magento\Sales\Model\Order $order */
         $order = $observer->getData('order');
         $shippingMethodObject = $order->getShippingMethod(true);
+        $this->_logger->debug('Starts Creating Quote');
+
+        $writer = new \Zend\Log\Writer\Stream(BP . '/var/log/mienvioQuotes.log');
+        $logger = new \Zend\Log\Logger();
+        $logger->addWriter($writer);
+        $this->_logger = $logger;
+
+
         if(!$shippingMethodObject){
             return $this;
         }
         $shipping_id = $shippingMethodObject->getMethod();
+
+        $this->_logger->debug('Method selected',['e'=>$shipping_id]);
+        if($shipping_id === "digital-product"){
+            return $this;
+        }
+
+
         $chosenServicelevel = '';
         $chosenProvider = '';
 
@@ -65,8 +81,10 @@ class ObserverSuccess implements ObserverInterface
         $isFreeActive = $this->checkIfIsFreeShipping();
         $titleMethodFree = $this->_mienvioHelper->getTitleMethodFree();
 
-        if($shipping_cost == 0 && $isFreeActive === true){
 
+
+        if($shipping_cost == 0 && $isFreeActive === true){
+            $this->_logger->debug('Is Free Shipping');
 
             try{
                 $mienvioResponse = $this->saveFreeShipping($observer);
@@ -93,6 +111,7 @@ class ObserverSuccess implements ObserverInterface
             return $this;
         }
 
+        $this->_logger->debug('Free shipping is not set');
 
         if ($shippingMethodObject->getCarrierCode() != $this->_code) {
             return $this;
@@ -134,10 +153,10 @@ class ObserverSuccess implements ObserverInterface
                 return $this;
             }
 
-            $this->_logger->info("Shipping address", ["data" => $shippingAddress->getData()]);
-            $this->_logger->info("order", ["data" => $order->getData()]);
-            $this->_logger->info("quoteId", ["data" => $quoteId]);
-            $this->_logger->info("shippingid", ["data" => $shipping_id]);
+            $this->_logger->debug("Shipping address", ["data" => $shippingAddress->getData()]);
+            $this->_logger->debug("order", ["data" => $order->getData()]);
+            $this->_logger->debug("quoteId", ["data" => $quoteId]);
+            $this->_logger->debug("shippingid", ["data" => $shipping_id]);
 
             $fromData = $this->createAddressDataStr('from',
                 "MIENVIO DE MEXICO",
@@ -171,7 +190,7 @@ class ObserverSuccess implements ObserverInterface
                 $shippingAddress->getCity()
             );
 
-            $this->_logger->info("Addresses data", ["to" => $toData, "from" => $fromData]);
+            $this->_logger->debug("Addresses data", ["to" => $toData, "from" => $fromData]);
 
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
@@ -310,7 +329,7 @@ class ObserverSuccess implements ObserverInterface
      */
     private function getOrderDefaultMeasures($items)
     {
-        
+
         $packageVolWeight = 0;
         $orderLength = 0;
         $orderWidth = 0;
@@ -323,7 +342,7 @@ class ObserverSuccess implements ObserverInterface
             $productName = $item->getName();
             $orderDescription .= $productName . ' ';
             $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
-            $this->_logger->debug('Items PREUBA 22 FEBRERO', ['PRODUCTO' => $product]);
+
             $dimensions = $this->getDimensionItems($product);
 
             if(is_array($dimensions)){
@@ -400,6 +419,21 @@ class ObserverSuccess implements ObserverInterface
                 $width = $this->convertInchesToCms($product->getAttribute('width'));
                 $height = $this->convertInchesToCms($product->getAttribute('height'));
                 $weight = $this->convertWeight($product->getAttribute('weight'));
+            }
+        }else if($product->getData('shipping_lengtheach') != 0 && $product->getData('shipping_lengtheach') != null){
+            if ($this->_mienvioHelper->getMeasures() === 1) {
+                $length = $product->getData('shipping_lengtheach');
+                $width = $product->getData('shipping_widtheach');
+                $height = $product->getData('shipping_heighteach');
+                $weight = $product->getData('shipping_weighteach');
+
+
+            } else {
+                $length = $this->convertInchesToCms($product->getData('shipping_lengtheach'));
+                $width = $this->convertInchesToCms($product->getData('shipping_widtheach'));
+                $height = $this->convertInchesToCms($product->getData('shipping_heighteach'));
+                $weight = $this->convertWeight($product->getData('shipping_weighteach'));
+
             }
         }else if($product->getData('shipping_lengthcarton') != 0 && $product->getData('shipping_lengthcarton') != null){
             if ($this->_mienvioHelper->getMeasures() === 1) {
@@ -667,7 +701,7 @@ class ObserverSuccess implements ObserverInterface
     }
 
     private function saveFreeShipping($observer){
-
+        $this->_logger->debug('Starts Save Free Shipping');
         $order = $observer->getData('order');
         $shippingMethodObject = $order->getShippingMethod(true);
         $shipping_id = $shippingMethodObject->getMethod();
