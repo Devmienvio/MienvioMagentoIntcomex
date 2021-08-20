@@ -214,8 +214,11 @@ class ObserverSuccess implements ObserverInterface
                     $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl, $chosenServicelevel, $chosenProvider, $order->getIncrementId()
                 );
                 $mienvioQuoteId = $mienvioResponse['quote_id'];
+                $mienvioTraxId = isset($mienvioResponse['trax_code_id']) ? $mienvioResponse['trax_code_id'] : "NONE";
                 $this->_logger->info("QUOTEid", ["data" => $mienvioQuoteId]);
+                $this->_logger->info("TRAXid", ["data" => $mienvioTraxId]);
                 $order->setMienvioQuoteId($mienvioQuoteId);
+                $order->setMienvioTraxId($mienvioTraxId);
                 $order->save();
                 return $this;
             }
@@ -682,11 +685,11 @@ class ObserverSuccess implements ObserverInterface
     private function getLevel2FromAddress ($destRegion,$destRegionCode,$destCity,$country = null)
     {
         if($country === 'CO'){
-            $level2 = $destCity;
+            $level2 = $destRegionCode;
             if($level2 == null){
                 $level2 = $destRegion;
                 if($level2 == null)
-                    $level2 = $destRegionCode;
+                    $level2 = $destCity;
             }
         }else{
             $level2 = $destCity;

@@ -32,6 +32,21 @@ class InstallData implements InstallDataInterface
             'visible' => false,
             'nullable' => true
         ]);
+        $salesSetup->addAttribute(Order::ENTITY, 'mienvio_trax_id', [
+            'type' => \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
+            'length'=> 50,
+            'visible' => false,
+            'nullable' => true
+        ]);
+        $installer->getConnection()->addColumn(
+            $installer->getTable('sales_order_grid'),
+            'mienvio_trax_id',
+            [
+                'type' => \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
+                'length' => 50,
+                'comment' =>'Is Important'
+            ]
+        );
         $installer->getConnection()->addColumn(
             $installer->getTable('sales_order_grid'),
             'mienvio_quote_id',

@@ -5,6 +5,9 @@
             <argument name="columns" xsi:type="array">
                 <item name="mienvio_quote_id" xsi:type="string">sales_order.mienvio_quote_id</item>
             </argument>
+            <argument name="columns" xsi:type="array">
+                <item name="mienvio_trax_id" xsi:type="string">sales_order.mienvio_trax_id</item>
+            </argument>
         </arguments>
     </virtualType>
 </config>
