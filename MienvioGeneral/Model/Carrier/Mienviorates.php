@@ -273,7 +273,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
                 $rates = $this->quoteShipmentViaQuoteEndpoint(
-                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl,$filterList
+                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl,$filterList,$filterByCost
                 );
             } else {
                 $rates = $this->quoteShipment(
@@ -332,14 +332,15 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      * @param  string $createQuoteUrl
      * @return string
      */
-    private function quoteShipmentViaQuoteEndpoint($items, $addressFromId, $addressToId, $createQuoteUrl,$filterList = null)
+    private function quoteShipmentViaQuoteEndpoint($items, $addressFromId, $addressToId, $createQuoteUrl,$filterList = null,$filterByCost = null)
     {
         $quoteReqData = [
             'items'         => $items,
             'address_from'  => $addressFromId,
             'address_to'    => $addressToId,
             'shop_url'     => $this->_storeManager->getStore()->getUrl(),
-            'filter_list' => $filterList
+            'filter_list' => $filterList,
+            'filter_by_cost' => $filterByCost
         ];
 
         $this->_logger->debug('Creating quote (mienviorates)', ['request' => json_encode($quoteReqData)]);

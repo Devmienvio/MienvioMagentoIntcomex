@@ -28,7 +28,8 @@ class ObserverSuccess implements ObserverInterface
         \Magento\Framework\HTTP\Client\Curl $curl,
         Helper $helperData,
         LoggerInterface $logger,
-        \Magento\Store\Model\StoreManagerInterface $storeManager
+        \Magento\Store\Model\StoreManagerInterface $storeManager,
+        \Magento\Catalog\Model\ProductFactory $productFactory
     ) {
         $this->_storeManager = $storeManager;
         $this->collectionFactory = $collectionFactory;
@@ -37,7 +38,7 @@ class ObserverSuccess implements ObserverInterface
         $this->_logger = $logger;
         $this->_mienvioHelper = $helperData;
         $this->_curl = $curl;
-
+        $this->productFactory = $productFactory;
     }
 
     public function execute(Observer $observer)
@@ -341,10 +342,12 @@ class ObserverSuccess implements ObserverInterface
         $itemsArr = [];
 
         foreach ($items as $item) {
-            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+
             $productName = $item->getName();
             $orderDescription .= $productName . ' ';
-            $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
+
+            $product = $this->productFactory->create();
+            $product->loadByAttribute('sku', $item->getSku());
 
             $dimensions = $this->getDimensionItems($product);
 
