@@ -207,7 +207,7 @@ class ObserverSuccess implements ObserverInterface
             $this->_logger->info("responses", ["to" => $addressToId, "from" => $addressFromId]);
 
             /* Measures */
-            $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllVisibleItems());
+            $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllVisibleItems(),$order);
             $packageWeight = $this->convertWeight($orderData['weight']);
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
@@ -224,7 +224,7 @@ class ObserverSuccess implements ObserverInterface
                     $order->save();
                     return $this;
                 } catch (\Exception $e) {
-                    $this->_logger->debug('Error when saving the order', ['e' => $e]);
+                    throw new InputException(__('Error when updating Mienvio Quote Id.'));
                     return $this;
                 }
 
@@ -337,7 +337,7 @@ class ObserverSuccess implements ObserverInterface
      * @param  Items $items
      * @return
      */
-    private function getOrderDefaultMeasures($items)
+    private function getOrderDefaultMeasures($items,$order = null)
     {
 
         $packageVolWeight = 0;
@@ -354,6 +354,11 @@ class ObserverSuccess implements ObserverInterface
 
             $product = $this->productFactory->create();
             $product->loadByAttribute('sku', $item->getSku());
+
+            if(!$product) {
+                $this->_logger->debug('Error when loading the product of the order #' . $order->getIncrementId() . ' to calculate the measurements', ['item' => $item->getData()]);
+                throw new InputException(__('Error when loading the product of the order to calculate the measurements.'));
+            }
 
             $dimensions = $this->getDimensionItems($product);
 
@@ -802,7 +807,7 @@ class ObserverSuccess implements ObserverInterface
             $this->_logger->info("responses", ["to" => $addressToId, "from" => $addressFromId]);
 
             /* Measures */
-            $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllVisibleItems());
+            $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllVisibleItems(), $order);
             $packageWeight = $this->convertWeight($orderData['weight']);
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {

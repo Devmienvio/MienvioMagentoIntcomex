@@ -5,6 +5,16 @@ Versión Intcomex Enterprise.
 El plugin contiene métodos y ajustes específicos para funcionar con la linea de negocio de B2B y B2C.
 
 
+
+## V.3.1.6
+2021/08/24
+
+
+#### Updates V.3.1.6 :
+
+- Manejo de excepciones en almacenado de la orden y obtencion del producto.
+
+
 ## V.3.1.5
 2021/08/24
 
