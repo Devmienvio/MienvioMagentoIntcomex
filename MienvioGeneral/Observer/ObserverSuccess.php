@@ -224,9 +224,8 @@ class ObserverSuccess implements ObserverInterface
                     $order->save();
                     return $this;
                 } catch (\Exception $e) {
-                    $this->_logger->debug('Error when saving the order', ['e' => $e]);
+                    $this->_logger->debug('Error set Mienvio Quote Id for Order #' . $order->getIncrementId(), ['e' => $e]);
                     throw new InputException(__('Error when updating Mienvio Quote Id.'));
-                    return $this;
                 }
 
             }

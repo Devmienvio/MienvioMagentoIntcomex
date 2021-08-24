@@ -5,6 +5,13 @@ Versión Intcomex Enterprise.
 El plugin contiene métodos y ajustes específicos para funcionar con la linea de negocio de B2B y B2C.
 
 
+## V.3.1.8
+2021/08/24
+
+
+#### Updates V.3.1.8 :
+
+- Cambio de Mensaje en el guardado de la orden, detallando el order id
 
 ## V.3.1.7
 2021/08/24
