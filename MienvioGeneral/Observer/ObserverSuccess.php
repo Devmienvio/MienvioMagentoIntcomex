@@ -211,17 +211,23 @@ class ObserverSuccess implements ObserverInterface
             $packageWeight = $this->convertWeight($orderData['weight']);
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
-                $mienvioResponse = $this->createQuoteFromItems(
-                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl, $chosenServicelevel, $chosenProvider, $order->getIncrementId()
-                );
-                $mienvioQuoteId = $mienvioResponse['quote_id'];
-                $mienvioTraxId = isset($mienvioResponse['trax_code_id']) ? $mienvioResponse['trax_code_id'] : "NONE";
-                $this->_logger->info("QUOTEid", ["data" => $mienvioQuoteId]);
-                $this->_logger->info("TRAXid", ["data" => $mienvioTraxId]);
-                $order->setMienvioQuoteId($mienvioQuoteId);
-                $order->setMienvioTraxId($mienvioTraxId);
-                $order->save();
-                return $this;
+                try {
+                    $mienvioResponse = $this->createQuoteFromItems(
+                        $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl, $chosenServicelevel, $chosenProvider, $order->getIncrementId()
+                    );
+                    $mienvioQuoteId = $mienvioResponse['quote_id'];
+                    $mienvioTraxId = isset($mienvioResponse['trax_code_id']) ? $mienvioResponse['trax_code_id'] : "NONE";
+                    $this->_logger->info("QUOTEid", ["data" => $mienvioQuoteId]);
+                    $this->_logger->info("TRAXid", ["data" => $mienvioTraxId]);
+                    $order->setMienvioQuoteId($mienvioQuoteId);
+                    $order->setMienvioTraxId($mienvioTraxId);
+                    $order->save();
+                    return $this;
+                } catch (\Exception $e) {
+                    $this->_logger->debug('Error when saving the order', ['e' => $e]);
+                    return $this;
+                }
+
             }
 
             $packageVolWeight = $itemsMeasures['vol_weight'];
