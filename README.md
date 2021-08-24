@@ -6,6 +6,15 @@ El plugin contiene métodos y ajustes específicos para funcionar con la linea d
 
 
 
+## V.3.1.7
+2021/08/24
+
+
+#### Updates V.3.1.7 :
+
+- Actualizacion de Campo mienvio_trax_id en base de datos via UpgradeData
+
+
 ## V.3.1.6
 2021/08/24
 
