@@ -698,11 +698,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
     private function getLevel2FromAddress ($destRegion,$destRegionCode,$destCity,$country = null)
     {
         if($country === 'CO'){
-            $level2 = $destCity;
+            $level2 = $destRegionCode;
             if($level2 == null){
                 $level2 = $destRegion;
                 if($level2 == null)
-                    $level2 = $destRegionCode;
+                    $level2 = $destCity;
             }
         }else{
             $level2 = $destCity;
