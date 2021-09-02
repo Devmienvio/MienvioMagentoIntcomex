@@ -294,7 +294,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
                 $method = $this->_rateMethodFactory->create();
                 $method->setCarrier($this->getCarrierCode());
-                $method->setCarrierTitle($rate['courier']);
+                if($filterByCost == "YES"){
+                    $method->setCarrierTitle("Entrega");
+                }else{
+                    $method->setCarrierTitle($rate['courier']);
+                }
                 $method->setMethod((string)$methodId);
                 if(isset($rate['istradein'])){
                     $method->setCode($rate['istradein']);
