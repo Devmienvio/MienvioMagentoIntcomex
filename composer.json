@@ -1,0 +1,32 @@
+{
+  "name": "mienviomagento/mienviogeneral",
+  "description": "Magento 2 Module Mienvio General",
+  "keywords": [
+    "magento",
+    "magento 2",
+    "mienvio",    
+  ],
+  "require": {
+    "php": ">=7.2.0",
+    "magento/framework": "*"
+  },
+  "license": "MIT",
+  "type": "magento2-module",
+  "version": "3.1.7",
+  "authors": [
+    {
+      "name": "Mienvio",
+      "email": "dev@mienvio.mx",
+      "homepage": "https://www.mienvio.com",
+      "role": "Developer Team"
+    }
+  ],
+  "autoload": {
+    "files": [
+      "MienvioGeneral/registration.php"
+    ],
+    "psr-4": {
+      "MienvioMagento\\MienvioGeneral\\": "MienvioGeneral"
+    }
+  }
+}
