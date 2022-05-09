@@ -48,8 +48,8 @@ class ObserverSuccess implements ObserverInterface
         $shippingMethodObject = $order->getShippingMethod(true);
         $this->_logger->debug('Starts Creating Quote');
 
-        $writer = new \Zend\Log\Writer\Stream(BP . '/var/log/mienvioQuotes.log');
-        $logger = new \Zend\Log\Logger();
+        $writer = new \Zend_Log_Writer_Stream(BP . '/var/log/mienvioRates.log');
+        $logger = new \Zend_Log();
         $logger->addWriter($writer);
         $this->_logger = $logger;
 

@@ -185,8 +185,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
         $filterList = '';
 
-        $writer = new \Zend\Log\Writer\Stream(BP . '/var/log/mienvioRates.log');
-        $logger = new \Zend\Log\Logger();
+        $writer = new \Zend_Log_Writer_Stream(BP . '/var/log/mienvioRates.log');
+        $logger = new \Zend_Log();
         $logger->addWriter($writer);
         $this->_logger = $logger;
 
