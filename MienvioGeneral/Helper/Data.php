@@ -5,11 +5,8 @@ namespace MienvioMagento\MienvioGeneral\Helper;
 use Magento\Framework\App\Helper\AbstractHelper;
 use Magento\Store\Model\ScopeInterface;
 
-
 class Data extends AbstractHelper
 {
-
-
     const XML_PATH_GENERAL = 'mienviogeneral/';
     const XML_PATH_API_KEY = 'carriers/mienviocarrier/apikey';
     const XML_PATH_API_KEY_RED = 'carriers/mienviocarrier/apikeyredundant';
@@ -27,42 +24,67 @@ class Data extends AbstractHelper
     const XML_PATH_Street2_store = 'shipping/origin/street_line2';
     const XML_PATH_ZipCode_store = 'shipping/origin/postcode';
     const XML_PATH_city_store = 'shipping/origin/city';
+    const XML_PATH_store_name = 'general/store_information/name';
+    const XML_PATH_store_phone = 'general/store_information/phone';
+    const XML_PATH_store_general_email = 'trans_email/ident_general/email';
+
     public function getConfigValue($field, $storeId = null)
     {
         return $this->scopeConfig->getValue(
-            $field, ScopeInterface::SCOPE_STORE, $storeId
+            $field,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
         );
+    }
+
+    public function getStoreName($storeId = null)
+    {
+        return $this->getConfigValue(self::XML_PATH_store_name, $storeId);
+    }
+
+    public function getStorePhone($storeId = null)
+    {
+        return $this->getConfigValue(self::XML_PATH_store_phone, $storeId);
+    }
+
+    public function getStoreEmail($storeId = null)
+    {
+        return $this->getConfigValue(self::XML_PATH_store_general_email, $storeId);
     }
 
     public function getGeneralConfig($code, $storeId = null)
     {
-
         return $this->getConfigValue(self::XML_PATH_GENERAL .'general/'. $code, $storeId);
     }
 
     public function isMienvioActive($storeId = null)
     {
-        return (boolean)$this->getConfigValue(self::XML_PATH_IS_ENABLE_MIENVIO , $storeId);
+        return (boolean)$this->getConfigValue(self::XML_PATH_IS_ENABLE_MIENVIO, $storeId);
     }
+
     public function isFreeShipping($storeId = null)
     {
-        return (boolean)$this->getConfigValue(self::XML_PATH_FREE_SHIPPING , $storeId);
+        return (boolean)$this->getConfigValue(self::XML_PATH_FREE_SHIPPING, $storeId);
     }
+
     public function getTitleMethodFree($storeId = null)
     {
-        return $this->getConfigValue(self::XML_PATH_TITLE_METHOD_FREE , $storeId);
+        return $this->getConfigValue(self::XML_PATH_TITLE_METHOD_FREE, $storeId);
     }
+
     public function getServiceLevel($storeId = null)
     {
-        return $this->getConfigValue(self::XML_PATH_SERVICE_LEVEL , $storeId);
+        return $this->getConfigValue(self::XML_PATH_SERVICE_LEVEL, $storeId);
     }
+
     public function getProvider($storeId = null)
     {
-        return $this->getConfigValue(self::XML_PATH_PROVIDER , $storeId);
+        return $this->getConfigValue(self::XML_PATH_PROVIDER, $storeId);
     }
+
     public function getLocation($storeId = null)
     {
-        return $this->getConfigValue(self::XML_PATH_LOCATION , $storeId);
+        return $this->getConfigValue(self::XML_PATH_LOCATION, $storeId);
     }
 
     public function getEsdList($storeId = null)
@@ -77,9 +99,9 @@ class Data extends AbstractHelper
 
     public function getEnvironment($storeId = null)
     {
-        $env = $this->getConfigValue(self::XML_PATH_ENVIRONMENT , $storeId);
+        $env = $this->getConfigValue(self::XML_PATH_ENVIRONMENT, $storeId);
         $result = '';
-        switch ($env){
+        switch ($env) {
             case 0://Production
                 $result = 'https://app.mienvio.mx/';
                 break;
@@ -94,41 +116,43 @@ class Data extends AbstractHelper
                 break;
         }
         return $result;
-
     }
 
     public function getMienvioApi($storeId = null)
     {
-        return $this->getConfigValue(self::XML_PATH_API_KEY , $storeId);
+        return $this->getConfigValue(self::XML_PATH_API_KEY, $storeId);
     }
 
     public function getMienvioApiRedundant($storeId = null)
     {
-        return $this->getConfigValue(self::XML_PATH_API_KEY_RED , $storeId);
+        return $this->getConfigValue(self::XML_PATH_API_KEY_RED, $storeId);
     }
 
     public function getOriginStreet($storeId = null)
     {
-        return $this->getConfigValue(self::XML_PATH_Street_store , $storeId);
+        return $this->getConfigValue(self::XML_PATH_Street_store, $storeId);
     }
+    
     public function getOriginStreet2($storeId = null)
     {
-        return $this->getConfigValue(self::XML_PATH_Street2_store , $storeId);
+        return $this->getConfigValue(self::XML_PATH_Street2_store, $storeId);
     }
+
     public function getOriginZipCode($storeId = null)
     {
-        return $this->getConfigValue(self::XML_PATH_ZipCode_store , $storeId);
+        return $this->getConfigValue(self::XML_PATH_ZipCode_store, $storeId);
     }
 
     public function getOriginCity($storeId = null)
     {
-        return $this->getConfigValue(self::XML_PATH_city_store , $storeId);
+        return $this->getConfigValue(self::XML_PATH_city_store, $storeId);
     }
+
     public function getMeasures($storeId = null)
     {
-        $measures = $this->getConfigValue(self::XML_MEASURES , $storeId);
+        $measures = $this->getConfigValue(self::XML_MEASURES, $storeId);
         $result = '';
-        switch ($measures){
+        switch ($measures) {
             case 0://Sistema Imperial
                 $result = 0;
                 break;
@@ -140,7 +164,5 @@ class Data extends AbstractHelper
                 break;
         }
         return $result;
-
     }
-
 }
