@@ -4,6 +4,15 @@ Versión Intcomex Enterprise.
 
 El plugin contiene métodos y ajustes específicos para funcionar con la linea de negocio de B2B y B2C.
 
+## V.3.1.11
+2022/05/12
+
+
+#### Updates V.3.1.11 :
+
+- Se implementa correción para enviar datos dinamicos del cliente en cotización
+- Se agrega la descripción dinamica para tarifario Master de GT
+
 
 ## V.3.1.10
 2021/09/02
