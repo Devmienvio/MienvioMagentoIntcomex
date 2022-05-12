@@ -246,7 +246,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             try {
                 $addressFromId = $addressFromResp->{'address'}->{'object_id'};
             } catch (\Exception $e) {
-                $this->_logger->debug('Mienviorates@collectRates:: empty address FROM');
+                $this->_logger->debug('Mienviorates@collectRates:: empty address FROM ' . $addressFromResp->{'error'}->{'message'});
                 return;
             }
             
@@ -257,7 +257,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             try {
                 $addressToId = $addressToResp->{'address'}->{'object_id'};
             } catch (\Exception $e) {
-                $this->_logger->debug('Mienviorates@collectRates:: empty address TO');
+                $this->_logger->debug('Mienviorates@collectRates:: empty address TO '. $addressToResp->{'error'}->{'message'});
                 return;
             }
             
@@ -318,7 +318,14 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
                 $method = $this->_rateMethodFactory->create();
                 $method->setCarrier($this->getCarrierCode());
-                if ($filterByCost == "YES") {
+
+                $this->_logger->debug('filterbyCost ::'.$filterByCost);
+                $this->_logger->debug('destCountryId ::'.$destCountryId);
+
+                if($destCountryId == 'GT'){
+                    $this->_logger->debug('description inside GT::');
+                    $method->setCarrierTitle('');
+                } else if($filterByCost == "YES"){
                     $method->setCarrierTitle("Entrega");
                 } else {
                     $method->setCarrierTitle($rate['courier']);
@@ -330,8 +337,10 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                     $method->setCode('');
                 }
 
-                $method->setMethodTitle($rate['servicelevel'].' - '.$rate['duration_terms']);
-                if ($freeShippingSet) {
+                $descriptionTime = isset($rate['duration_terms']) ? $rate['duration_terms'] : 'Tiempo Variado';
+                $method->setMethodTitle($rate['servicelevel'].' - '.$descriptionTime);
+              
+                if($freeShippingSet){
                     $method->setPrice(0);
                     $method->setCost(0);
                 } else {
@@ -408,10 +417,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         }
 
         return [[
-            'courier'      => $quoteResponse->{'courier'},
-            'servicelevel' => $quoteResponse->{'servicelevel'},
-            'id'           => $quoteResponse->{'quote_id'},
-            'cost'         => $quoteResponse->{'cost'}
+            'courier'        => $quoteResponse->{'courier'},
+            'servicelevel'   => $quoteResponse->{'servicelevel'},
+            'id'             => $quoteResponse->{'quote_id'},
+            'cost'           => $quoteResponse->{'cost'},
+            'duration_terms' => $quoteResponse->{'duration_terms'}
         ]];
     }
 
@@ -597,10 +607,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         foreach ($ratesResponse->{'results'} as $rate) {
             if (is_object($rate)) {
                 $responseArr[] = [
-                    'courier'      => $rate->{'provider'},
-                    'servicelevel' => $rate->{'servicelevel'},
-                    'id'           => $rate->{'object_id'},
-                    'cost'         => $rate->{'amount'}
+                    'courier'        => $rate->{'provider'},
+                    'servicelevel'   => $rate->{'servicelevel'},
+                    'id'             => $rate->{'object_id'},
+                    'cost'           => $rate->{'amount'},
+                    'duration_terms' => $rate->{'duration_terms'}
                 ];
             }
         }
