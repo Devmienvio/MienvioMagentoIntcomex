@@ -54,13 +54,13 @@ class ObserverSuccess implements ObserverInterface
         $this->_logger = $logger;
 
 
-        if(!$shippingMethodObject){
+        if (!$shippingMethodObject) {
             return $this;
         }
         $shipping_id = $shippingMethodObject->getMethod();
 
-        $this->_logger->debug('Method selected',['e'=>$shipping_id]);
-        if($shipping_id === "digital-product"){
+        $this->_logger->debug('Method selected', ['e'=>$shipping_id]);
+        if ($shipping_id === "digital-product") {
             return $this;
         }
 
@@ -84,10 +84,10 @@ class ObserverSuccess implements ObserverInterface
 
 
 
-        if($shipping_cost == 0 && $isFreeActive === true){
+        if ($shipping_cost == 0 && $isFreeActive === true) {
             $this->_logger->debug('Is Free Shipping');
 
-            try{
+            try {
                 $mienvioResponse = $this->saveFreeShipping($observer);
                 $mienvioAmount = $mienvioResponse['rates'][0]["amount"];
                 $mienvioProvider = $mienvioResponse['rates'][0]["provider"];
@@ -103,7 +103,7 @@ class ObserverSuccess implements ObserverInterface
                 $order->setShippingDescription($mienvioProvider.' - '.$mienvioServiceLevel);
                 $order->setShippingMethod('mienviocarrier_'.$mienvioServiceLevel.'-'.$mienvioProvider);
                 $order->save();
-            }catch (\Exception $e) {
+            } catch (\Exception $e) {
                 $order->setMienvioQuoteId('Generar guía Manual');
                 $order->save();
                 $this->_logger->debug('Error when generate Free Shipping', ['e' => $e]);
@@ -159,13 +159,18 @@ class ObserverSuccess implements ObserverInterface
             $this->_logger->debug("quoteId", ["data" => $quoteId]);
             $this->_logger->debug("shippingid", ["data" => $shipping_id]);
 
-            $fromData = $this->createAddressDataStr('from',
-                "MIENVIO DE MEXICO",
+            $storeName = trim($this->_mienvioHelper->getStoreName());
+            $storePhone = trim($this->_mienvioHelper->getStorePhone());
+            $storeEmail = trim($this->_mienvioHelper->getStoreEmail());
+
+            $fromData = $this->createAddressDataStr(
+                'from',
+                empty($storeName) ? "MIENVIO DE MEXICO" : $storeName,
                 $this->_mienvioHelper->getOriginStreet(),
                 $this->_mienvioHelper->getOriginStreet2(),
                 $this->_mienvioHelper->getOriginZipCode(),
-                "ventas@mienvio.mx",
-                "4422876138",
+                empty($storeEmail) ? "ventas@mienvio.mx" : $storeEmail,
+                empty($storePhone) ? "5551814040" : $storePhone,
                 '',
                 $countryId,
                 $this->_mienvioHelper->getOriginCity()
@@ -178,10 +183,12 @@ class ObserverSuccess implements ObserverInterface
 
             $toStreet2 = empty($shippingAddress->getStreetLine(2)) ? $shippingAddress->getStreetLine(1) : $shippingAddress->getStreetLine(2);
 
-            $toData = $this->createAddressDataStr('to',
+            $toData = $this->createAddressDataStr(
+                'to',
                 $customerName,
                 $shippingAddress->getStreetLine(1),
-                $toStreet2,$shippingAddress->getPostcode(),
+                $toStreet2,
+                $shippingAddress->getPostcode(),
                 $customermail,
                 $customerPhone,
                 $shippingAddress->getStreetLine(3),
@@ -207,13 +214,19 @@ class ObserverSuccess implements ObserverInterface
             $this->_logger->info("responses", ["to" => $addressToId, "from" => $addressFromId]);
 
             /* Measures */
-            $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllVisibleItems(),$order);
+            $itemsMeasures = $this->getOrderDefaultMeasures($order->getAllVisibleItems(), $order);
             $packageWeight = $this->convertWeight($orderData['weight']);
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
                 try {
                     $mienvioResponse = $this->createQuoteFromItems(
-                        $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl, $chosenServicelevel, $chosenProvider, $order->getIncrementId()
+                        $itemsMeasures['items'],
+                        $addressFromId,
+                        $addressToId,
+                        $createQuoteUrl,
+                        $chosenServicelevel,
+                        $chosenProvider,
+                        $order->getIncrementId()
                     );
                     $mienvioQuoteId = $mienvioResponse['quote_id'];
                     $mienvioTraxId = isset($mienvioResponse['trax_code_id']) ? $mienvioResponse['trax_code_id'] : "NONE";
@@ -227,7 +240,6 @@ class ObserverSuccess implements ObserverInterface
                     $this->_logger->debug('Error set Mienvio Quote Id for Order #' . $order->getIncrementId(), ['e' => $e]);
                     throw new InputException(__('Error when updating Mienvio Quote Id.'));
                 }
-
             }
 
             $packageVolWeight = $itemsMeasures['vol_weight'];
@@ -328,7 +340,6 @@ class ObserverSuccess implements ObserverInterface
         $res = json_decode(stripslashes($quoteResponse), true);
         $this->_logger->debug('Creating quote (ObserverSuccess)', ['response' => $res]);
         return $res;
-
     }
 
     /**
@@ -337,9 +348,8 @@ class ObserverSuccess implements ObserverInterface
      * @param  Items $items
      * @return
      */
-    private function getOrderDefaultMeasures($items,$order = null)
+    private function getOrderDefaultMeasures($items, $order = null)
     {
-
         $packageVolWeight = 0;
         $orderLength = 0;
         $orderWidth = 0;
@@ -348,26 +358,25 @@ class ObserverSuccess implements ObserverInterface
         $itemsArr = [];
 
         foreach ($items as $item) {
-
             $productName = $item->getName();
             $orderDescription .= $productName . ' ';
 
             $product = $this->productFactory->create();
             $product->loadByAttribute('sku', $item->getSku());
 
-            if(!$product) {
+            if (!$product) {
                 $this->_logger->debug('Error when loading the product of the order #' . $order->getIncrementId() . ' to calculate the measurements', ['item' => $item->getData()]);
                 throw new InputException(__('Error when loading the product of the order to calculate the measurements.'));
             }
 
             $dimensions = $this->getDimensionItems($product);
 
-            if(is_array($dimensions)){
+            if (is_array($dimensions)) {
                 $length = $dimensions['length'];
                 $width  = $dimensions['width'];
                 $height = $dimensions['height'];
                 $weight = $dimensions['weight'];
-            }else{
+            } else {
                 $length = 2;
                 $width  = 2;
                 $height = 2;
@@ -405,27 +414,26 @@ class ObserverSuccess implements ObserverInterface
     }
 
 
-    private function getDimensionItems($product){
+    private function getDimensionItems($product)
+    {
         $length = 0;
         $width = 0;
         $height = 0;
         $weight = 0;
 
-        if($product->getData('ts_dimensions_length') != 0 && $product->getData('ts_dimensions_length') != null) {
+        if ($product->getData('ts_dimensions_length') != 0 && $product->getData('ts_dimensions_length') != null) {
             if ($this->_mienvioHelper->getMeasures() === 1) {
                 $length = $product->getData('ts_dimensions_length');
                 $width = $product->getData('ts_dimensions_width');
                 $height = $product->getData('ts_dimensions_height');
                 $weight = $product->getData('weight');
-
-
             } else {
                 $length = $this->convertInchesToCms($product->getData('ts_dimensions_length'));
                 $width = $this->convertInchesToCms($product->getData('ts_dimensions_width'));
                 $height = $this->convertInchesToCms($product->getData('ts_dimensions_height'));
                 $weight = $this->convertWeight($product->getData('weight'));
             }
-        }else if($product->getAttribute('length') != 0 && $product->getAttribute('length') != null){
+        } elseif ($product->getAttribute('length') != 0 && $product->getAttribute('length') != null) {
             if ($this->_mienvioHelper->getMeasures() === 1) {
                 $length = $product->getAttribute('length');
                 $width = $product->getAttribute('width');
@@ -437,57 +445,48 @@ class ObserverSuccess implements ObserverInterface
                 $height = $this->convertInchesToCms($product->getAttribute('height'));
                 $weight = $this->convertWeight($product->getAttribute('weight'));
             }
-        }else if($product->getData('shipping_lengtheach') != 0 && $product->getData('shipping_lengtheach') != null){
+        } elseif ($product->getData('shipping_lengtheach') != 0 && $product->getData('shipping_lengtheach') != null) {
             if ($this->_mienvioHelper->getMeasures() === 1) {
                 $length = $product->getData('shipping_lengtheach');
                 $width = $product->getData('shipping_widtheach');
                 $height = $product->getData('shipping_heighteach');
                 $weight = $product->getData('shipping_weighteach');
-
-
             } else {
                 $length = $this->convertInchesToCms($product->getData('shipping_lengtheach'));
                 $width = $this->convertInchesToCms($product->getData('shipping_widtheach'));
                 $height = $this->convertInchesToCms($product->getData('shipping_heighteach'));
                 $weight = $this->convertWeight($product->getData('shipping_weighteach'));
-
             }
-        }else if($product->getData('shipping_lengthcarton') != 0 && $product->getData('shipping_lengthcarton') != null){
+        } elseif ($product->getData('shipping_lengthcarton') != 0 && $product->getData('shipping_lengthcarton') != null) {
             if ($this->_mienvioHelper->getMeasures() === 1) {
                 $length = $product->getData('shipping_lengthcarton');
                 $width = $product->getData('shipping_widthcarton');
                 $height = $product->getData('shipping_heightcarton');
                 $weight = $product->getData('shipping_weightcarton');
-
-
             } else {
                 $length = $this->convertInchesToCms($product->getData('shipping_lengthcarton'));
                 $width = $this->convertInchesToCms($product->getData('shipping_widthcarton'));
                 $height = $this->convertInchesToCms($product->getData('shipping_heightcarton'));
                 $weight = $this->convertWeight($product->getData('shipping_weightcarton'));
-
             }
-        }else if($product->getData('length') != 0 && $product->getData('length') != null){
+        } elseif ($product->getData('length') != 0 && $product->getData('length') != null) {
             if ($this->_mienvioHelper->getMeasures() === 1) {
                 $length = $product->getData('length');
                 $width = $product->getData('width');
                 $height = $product->getData('height');
                 $weight = $product->getData('weight');
-
-
             } else {
                 $length = $this->convertInchesToCms($product->getData('length'));
                 $width = $this->convertInchesToCms($product->getData('width'));
                 $height = $this->convertInchesToCms($product->getData('height'));
                 $weight = $this->convertWeight($product->getData('weight'));
             }
-        }else{
+        } else {
             $length = 0.5;
             $width = 0.5;
             $height = 0.5;
             $weight = 0.2;
             $this->_logger->debug('This item will be trated as a kit with measures in 0.', ['item info' => serialize($product->getData())]);
-
         }
         return array(
             'length' => $length,
@@ -583,7 +582,9 @@ class ObserverSuccess implements ObserverInterface
 
         foreach ($packages as $package) {
             $packageVolWeight = $this->calculateVolumetricWeight(
-                $package->{'length'}, $package->{'width'}, $package->{'height'}
+                $package->{'length'},
+                $package->{'width'},
+                $package->{'height'}
             );
 
             if ($packageVolWeight > $biggerPackageVolWeight) {
@@ -623,9 +624,8 @@ class ObserverSuccess implements ObserverInterface
      * @param  string $countryCode
      * @return string
      */
-    private function createAddressDataStr($type,$name, $street, $street2, $zipcode, $email, $phone, $reference = '.', $countryCode,$destRegion = null, $destRegionCode = null, $destCity = null)
+    private function createAddressDataStr($type, $name, $street, $street2, $zipcode, $email, $phone, $reference = '.', $countryCode, $destRegion = null, $destRegionCode = null, $destCity = null)
     {
-
         $data = [
             'object_type' => 'PURCHASE',
             'name' => $name,
@@ -643,44 +643,40 @@ class ObserverSuccess implements ObserverInterface
         $this->_logger->debug('DestRegionCode: '.$destRegionCode);
         $this->_logger->debug('DesCity: '.$destCity);
 
-        if($location == 'street2' ){
-
+        if ($location == 'street2') {
             if ($countryCode === 'MX') {
                 $data['zipcode'] = $zipcode;
-            } elseif ($countryCode === 'CO'){
-                if($type === 'from'){
+            } elseif ($countryCode === 'CO') {
+                if ($type === 'from') {
                     $data['level_1'] = $street2;
-                    $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity,$countryCode);
+                    $data['level_2'] = $this->getLevel2FromAddress($destRegion, $destRegionCode, $destCity, $countryCode);
                 }
-                if($type === 'to'){
-                    if($destCity != ''){
+                if ($type === 'to') {
+                    if ($destCity != '') {
                         $data['level_1'] = $destCity;
-                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity,$countryCode);
-                    }elseif ($street2 != ''){
+                        $data['level_2'] = $this->getLevel2FromAddress($destRegion, $destRegionCode, $destCity, $countryCode);
+                    } elseif ($street2 != '') {
                         $data['level_1'] = $street2;
-                        $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity,$countryCode);
+                        $data['level_2'] = $this->getLevel2FromAddress($destRegion, $destRegionCode, $destCity, $countryCode);
                     }
                 }
-
             } else {
                 $data['level_1'] = $street2;
-                $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                $data['level_2'] = $this->getLevel2FromAddress($destRegion, $destRegionCode, $destCity);
             }
-
-        }else if($location == 'zipcode' ){
+        } elseif ($location == 'zipcode') {
             if ($countryCode === 'MX') {
                 $data['zipcode'] = $zipcode;
             } else {
                 $data['level_1'] = $zipcode;
-                $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                $data['level_2'] = $this->getLevel2FromAddress($destRegion, $destRegionCode, $destCity);
             }
-
-        }else{
+        } else {
             if ($countryCode === 'MX') {
                 $data['zipcode'] = $zipcode;
             } else {
                 $data['level_1'] = $zipcode;
-                $data['level_2'] = $this->getLevel2FromAddress($destRegion,$destRegionCode,$destCity);
+                $data['level_2'] = $this->getLevel2FromAddress($destRegion, $destRegionCode, $destCity);
             }
         }
 
@@ -696,28 +692,31 @@ class ObserverSuccess implements ObserverInterface
      *
      * Se añade la validación para revisar que el el nivel 2 se este tomando de acuerdo a la inversa desde region a ciudad.
      */
-    private function getLevel2FromAddress ($destRegion,$destRegionCode,$destCity,$country = null)
+    private function getLevel2FromAddress($destRegion, $destRegionCode, $destCity, $country = null)
     {
-        if($country === 'CO'){
+        if ($country === 'CO') {
             $level2 = $destRegionCode;
-            if($level2 == null){
+            if ($level2 == null) {
                 $level2 = $destRegion;
-                if($level2 == null)
+                if ($level2 == null) {
                     $level2 = $destCity;
+                }
             }
-        }else{
+        } else {
             $level2 = $destCity;
-            if($level2 == null){
+            if ($level2 == null) {
                 $level2 = $destRegion;
-                if($level2 == null)
+                if ($level2 == null) {
                     $level2 = $destRegionCode;
+                }
             }
         }
 
         return $level2;
     }
 
-    private function saveFreeShipping($observer){
+    private function saveFreeShipping($observer)
+    {
         $this->_logger->debug('Starts Save Free Shipping');
         $order = $observer->getData('order');
         $shippingMethodObject = $order->getShippingMethod(true);
@@ -756,13 +755,18 @@ class ObserverSuccess implements ObserverInterface
             $this->_logger->info("quoteId", ["data" => $quoteId]);
             $this->_logger->info("shippingid", ["data" => $shipping_id]);
 
-            $fromData = $this->createAddressDataStr('from',
-                "MIENVIO DE MEXICO",
+            $storeName = trim($this->_mienvioHelper->getStoreName());
+            $storePhone = trim($this->_mienvioHelper->getStorePhone());
+            $storeEmail = trim($this->_mienvioHelper->getStoreEmail());
+
+            $fromData = $this->createAddressDataStr(
+                'from',
+                empty($storeName) ? "MIENVIO DE MEXICO" : $storeName,
                 $this->_mienvioHelper->getOriginStreet(),
                 $this->_mienvioHelper->getOriginStreet2(),
                 $this->_mienvioHelper->getOriginZipCode(),
-                "ventas@mienvio.mx",
-                "4422876138",
+                empty($storeEmail) ? "ventas@mienvio.mx" : $storeEmail,
+                empty($storePhone) ? "5551814040" : $storePhone,
                 '',
                 $countryId,
                 '',
@@ -777,7 +781,8 @@ class ObserverSuccess implements ObserverInterface
 
             $toStreet2 = empty($shippingAddress->getStreetLine(2)) ? $shippingAddress->getStreetLine(1) : $shippingAddress->getStreetLine(2);
 
-            $toData = $this->createAddressDataStr('to',
+            $toData = $this->createAddressDataStr(
+                'to',
                 $customerName,
                 $shippingAddress->getStreetLine(1),
                 $toStreet2,
@@ -812,13 +817,18 @@ class ObserverSuccess implements ObserverInterface
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
                 $response = $this->createQuoteFromItems(
-                    $itemsMeasures['items'], $addressFromId, $addressToId, $createQuoteUrl, $chosenServicelevel, $chosenProvider, $order->getIncrementId()
+                    $itemsMeasures['items'],
+                    $addressFromId,
+                    $addressToId,
+                    $createQuoteUrl,
+                    $chosenServicelevel,
+                    $chosenProvider,
+                    $order->getIncrementId()
                 );
 
 
                 return $response;
             }
-
         } catch (\Exception $e) {
             $this->_logger->info("error saving new shipping method Exception");
             $this->_logger->info($e->getMessage());
@@ -830,13 +840,14 @@ class ObserverSuccess implements ObserverInterface
         $isActive = $this->_mienvioHelper->isFreeShipping();
         if (!$isActive) {
             return false;
-        }else{
+        } else {
             return true;
         }
     }
 
 
-    private  function parseServiceLevel($serviceLevel){
+    private function parseServiceLevel($serviceLevel)
+    {
         $parsed = '';
         switch ($serviceLevel) {
             case 'estandar':
@@ -883,11 +894,11 @@ class ObserverSuccess implements ObserverInterface
         }
 
         return $parsed;
-
     }
 
 
-    private  function parseReverseServiceLevel($serviceLevel){
+    private function parseReverseServiceLevel($serviceLevel)
+    {
         $parsed = '';
         switch ($serviceLevel) {
             case 'Estándar' :
@@ -934,6 +945,5 @@ class ObserverSuccess implements ObserverInterface
         }
 
         return $parsed;
-
     }
 }
