@@ -242,25 +242,37 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $this->_logger->debug('Mienviorates@collectRates:: create address FROM request: ' . json_encode($fromData));
             $this->_curl->post($createAddressUrl, json_encode($fromData));
             $addressFromResp = json_decode($this->_curl->getBody());
-            $this->_logger->debug('Mienviorates@collectRates:: create address FROM response: ' . $this->_curl->getBody());
+
             try {
-                $addressFromId = $addressFromResp->{'address'}->{'object_id'};
+                if( isset($addressFromResp->address) ){
+                    $this->_logger->debug('Mienviorates@collectRates:: create address FROM response: ' . $this->_curl->getBody());
+                    $addressFromId = $addressFromResp->{'address'}->{'object_id'};
+                } else if( isset($addressFromResp->message) ){
+                    $this->_logger->debug('Mienviorates@collectRates:: ERROR address FROM: ' . $this->_curl->getBody());
+                    return;
+                }
             } catch (\Exception $e) {
                 $this->_logger->debug('Mienviorates@collectRates:: empty address FROM ' . $addressFromResp->{'error'}->{'message'});
                 return;
             }
-            
+
             $this->_logger->debug('Mienviorates@collectRates:: create address TO request: ' . json_encode($toData));
             $this->_curl->post($createAddressUrl, json_encode($toData));
             $addressToResp = json_decode($this->_curl->getBody());
-            $this->_logger->debug('Mienviorates@collectRates:: create address TO response: ' . $this->_curl->getBody());
+
             try {
-                $addressToId = $addressToResp->{'address'}->{'object_id'};
+                if( isset($addressToResp->address) ){
+                    $this->_logger->debug('Mienviorates@collectRates:: create address TO response: ' . $this->_curl->getBody());
+                    $addressToId = $addressToResp->{'address'}->{'object_id'};
+                } else if( isset($addressToResp->message) ){
+                    $this->_logger->debug('Mienviorates@collectRates:: ERROR address TO: ' . $this->_curl->getBody());
+                    return;
+                }
             } catch (\Exception $e) {
                 $this->_logger->debug('Mienviorates@collectRates:: empty address TO '. $addressToResp->{'error'}->{'message'});
                 return;
             }
-            
+
             $itemsMeasures = $this->getOrderDefaultMeasures($request->getAllItems());
 
             if (is_string($itemsMeasures)) {
@@ -339,7 +351,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
                 $descriptionTime = isset($rate['duration_terms']) ? $rate['duration_terms'] : 'Tiempo Variado';
                 $method->setMethodTitle($rate['servicelevel'].' - '.$descriptionTime);
-              
+
                 if($freeShippingSet){
                     $method->setPrice(0);
                     $method->setCost(0);
