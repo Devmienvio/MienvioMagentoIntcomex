@@ -187,7 +187,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
 
 
-        try {
             /* ADDRESS CREATION */
             $destCountryId  = $request->getDestCountryId();
             $destCountry    = $request->getDestCountry();
@@ -317,10 +316,28 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
                 );
             }
 
+            if( isset($rates->error) ){
+                $errorText = '';
+                if( isset($rates->error->params) ){
+                    foreach ($rates->error->params as $key => $param) {
+                        if(is_array($param)){
+                            $errorText .= $key.': '.$param[0];
+                        }else{
+                            $errorText .= $param;
+                        }
+                    }
+                }else{
+                    $errorText .= $rates->error->message;
+                }
+
+                throw new \Magento\Framework\Exception\CouldNotDeleteException(__($errorText));
+            }
+
             if ($this->checkIfIsFreeShipping()) {
                 $this->_logger->debug('Free shipping is activated, the rates would not be shown');
                 return $rateResponse;
             }
+            $this->_logger->debug('Rates: '. json_encode($rates));
             foreach ($rates as $rate) {
                 $this->_logger->debug('rate_id');
                 $methodId = $this->parseReverseServiceLevel($rate['servicelevel']) . '-' . $rate['courier'];
@@ -362,10 +379,6 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
                 $rateResponse->append($method);
             }
-        } catch (\Exception $e) {
-            $this->_logger->debug("Rates Exception");
-            $this->_logger->debug($e);
-        }
 
         return $rateResponse;
     }
@@ -390,11 +403,20 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             'filter_by_cost' => $filterByCost
         ];
 
-        $this->_logger->debug('Creating quote (mienviorates)', ['request' => json_encode($quoteReqData)]);
-        $this->_logger->debug('URL MIENVIO', ['url' => $createQuoteUrl]);
+        $this->_logger->debug('Creating quote (mienviorates) request: ' . json_encode($quoteReqData));
+
+        $this->_logger->debug('URL MIENVIO ' . $createQuoteUrl);
         $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
         $quoteResponse = json_decode($this->_curl->getBody());
-        $this->_logger->debug('Creating quote (mienviorates)', ['response' => $this->_curl->getBody()]);
+
+        if( isset($quoteResponse->error) ){
+            $this->_logger->debug('Creating quote (mienviorates) response: ' . json_encode($quoteResponse));
+            $this->_logger->debug('code: ' . $quoteResponse->error->code . ', message: "' . $quoteResponse->error->message . '", params: ' . json_encode($quoteResponse->error->params));
+
+            return $quoteResponse;
+        }
+
+        $this->_logger->debug('Creating quote (mienviorates) response' . json_encode($quoteResponse));
 
         if (isset($quoteResponse->{'rates'})) {
             $rates = [];
