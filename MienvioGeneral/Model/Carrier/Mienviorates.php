@@ -411,7 +411,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
         if( isset($quoteResponse->error) ){
             $this->_logger->debug('Creating quote (mienviorates) response: ' . json_encode($quoteResponse));
-            $this->_logger->debug('code: ' . $quoteResponse->error->code . ', message: "' . $quoteResponse->error->message . '", params: ' . json_encode($quoteResponse->error->params));
+            if( $quoteResponse->error->status_code ){
+                $this->_logger->debug('code: ' . $quoteResponse->error->status_code . ', message: "' . $quoteResponse->error->message . '", params: null');
+                return $quoteResponse;
+            }
+            $this->_logger->debug('code: ' . $quoteResponse->error->status_code . ', message: "' . $quoteResponse->error->message . '", params: ' . json_encode($quoteResponse->error->params));
 
             return $quoteResponse;
         }
