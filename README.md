@@ -4,6 +4,17 @@ Versión Intcomex Enterprise.
 
 El plugin contiene métodos y ajustes específicos para funcionar con la linea de negocio de B2B y B2C.
 
+## V.3.1.12
+2022/06/13
+
+
+#### Updates V.3.1.12 :
+
+- Se obtienen las respuestas de las Api's en formato JSON.
+- Se implementa función para mostrar errores en front.
+- Se agregan más registros al archivo mienvioRates.log de los procesos de manera más clara.
+
+
 ## V.3.1.11
 2022/05/12
 
