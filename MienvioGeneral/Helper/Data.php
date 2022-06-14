@@ -132,7 +132,7 @@ class Data extends AbstractHelper
     {
         return $this->getConfigValue(self::XML_PATH_Street_store, $storeId);
     }
-    
+
     public function getOriginStreet2($storeId = null)
     {
         return $this->getConfigValue(self::XML_PATH_Street2_store, $storeId);

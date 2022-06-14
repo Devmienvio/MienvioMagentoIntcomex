@@ -238,38 +238,27 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $options = [ CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"]];
             $this->_curl->setOptions($options);
             $this->_logger->debug('Mienviorates@collectRates:: create address url', ['url' => $createAddressUrl]);
+
             $this->_logger->debug('Mienviorates@collectRates:: create address FROM request: ' . json_encode($fromData));
             $this->_curl->post($createAddressUrl, json_encode($fromData));
             $addressFromResp = json_decode($this->_curl->getBody());
-
-            try {
-                if( isset($addressFromResp->address) ){
-                    $this->_logger->debug('Mienviorates@collectRates:: create address FROM response: ' . $this->_curl->getBody());
-                    $addressFromId = $addressFromResp->{'address'}->{'object_id'};
-                } else if( isset($addressFromResp->message) ){
-                    $this->_logger->debug('Mienviorates@collectRates:: ERROR address FROM: ' . $this->_curl->getBody());
-                    return;
-                }
-            } catch (\Exception $e) {
-                $this->_logger->debug('Mienviorates@collectRates:: empty address FROM ' . $addressFromResp->{'error'}->{'message'});
-                return;
+            if( isset($addressFromResp->address) ){
+                $this->_logger->debug('Mienviorates@collectRates:: create address FROM response: ' . $this->_curl->getBody());
+                $addressFromId = $addressFromResp->{'address'}->{'object_id'};
+            } else if( isset($addressFromResp->error) ){
+                $this->_logger->debug('Mienviorates@collectRates:: ERROR address FROM: ' . $this->_curl->getBody());
+                $this->showMessagesFromResponse($addressFromResp);
             }
 
             $this->_logger->debug('Mienviorates@collectRates:: create address TO request: ' . json_encode($toData));
             $this->_curl->post($createAddressUrl, json_encode($toData));
             $addressToResp = json_decode($this->_curl->getBody());
-
-            try {
-                if( isset($addressToResp->address) ){
-                    $this->_logger->debug('Mienviorates@collectRates:: create address TO response: ' . $this->_curl->getBody());
-                    $addressToId = $addressToResp->{'address'}->{'object_id'};
-                } else if( isset($addressToResp->message) ){
-                    $this->_logger->debug('Mienviorates@collectRates:: ERROR address TO: ' . $this->_curl->getBody());
-                    return;
-                }
-            } catch (\Exception $e) {
-                $this->_logger->debug('Mienviorates@collectRates:: empty address TO '. $addressToResp->{'error'}->{'message'});
-                return;
+            if( isset($addressToResp->address) ){
+                $this->_logger->debug('Mienviorates@collectRates:: create address TO response: ' . $this->_curl->getBody());
+                $addressToId = $addressToResp->{'address'}->{'object_id'};
+            } else if( isset($addressToResp->error) ){
+                $this->_logger->debug('Mienviorates@collectRates:: ERROR address TO: ' . $this->_curl->getBody());
+                $this->showMessagesFromResponse($addressToResp);
             }
 
             $itemsMeasures = $this->getOrderDefaultMeasures($request->getAllItems());
@@ -317,20 +306,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             }
 
             if( isset($rates->error) ){
-                $errorText = '';
-                if( isset($rates->error->params) ){
-                    foreach ($rates->error->params as $key => $param) {
-                        if(is_array($param)){
-                            $errorText .= $key.': '.$param[0];
-                        }else{
-                            $errorText .= $param;
-                        }
-                    }
-                }else{
-                    $errorText .= $rates->error->message;
-                }
-
-                throw new \Magento\Framework\Exception\CouldNotDeleteException(__($errorText));
+                $this->showMessagesFromResponse($rates);
             }
 
             if ($this->checkIfIsFreeShipping()) {
@@ -411,7 +387,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
 
         if( isset($quoteResponse->error) ){
             $this->_logger->debug('Creating quote (mienviorates) response: ' . json_encode($quoteResponse));
-            $this->_logger->debug('code: ' . $quoteResponse->error->code . ', message: "' . $quoteResponse->error->message . '", params: ' . json_encode($quoteResponse->error->params));
+            if( $quoteResponse->error->status_code ){
+                $this->_logger->debug('code: ' . $quoteResponse->error->status_code . ', message: "' . $quoteResponse->error->message . '", params: null');
+                return $quoteResponse;
+            }
+            $this->_logger->debug('code: ' . $quoteResponse->error->status_code . ', message: "' . $quoteResponse->error->message . '", params: ' . json_encode($quoteResponse->error->params));
 
             return $quoteResponse;
         }
@@ -1101,5 +1081,22 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         }
 
         return 'esp';
+    }
+
+    private function showMessagesFromResponse($response){
+        $errorText = '';
+        if( isset($response->error->params) ){
+            foreach ($response->error->params as $key => $param) {
+                if(is_array($param)){
+                    $errorText .= $key.': '.$param[0];
+                }else{
+                    $errorText .= $param;
+                }
+            }
+        }else{
+            $errorText .= $response->error->message;
+        }
+
+        throw new \Magento\Framework\Exception\CouldNotDeleteException(__($errorText));
     }
 }
