@@ -103,16 +103,23 @@ class Data extends AbstractHelper
         $result = '';
         switch ($env) {
             case 0://Production
-                $result = 'https://app.mienvio.mx/';
+                // $result = 'https://app.mienvio.mx/';
+                $result = 'http://localhost/back-intcomex/public/';
                 break;
             case 1: //Sandbox
-                $result = 'https://sandboxenterprise.mienvio.mx/';
+                // $result = 'https://sandboxenterprise.mienvio.mx/';
+                $result = 'http://localhost/back-intcomex/public/';
+
                 break;
             case 2:// Develop
-                $result = 'https://sandboxenterprise.mienvio.mx/';
+                // $result = 'https://sandboxenterprise.mienvio.mx/';
+                $result = 'http://localhost/back-intcomex/public/';
+
                 break;
             default:
-                $result = 'https://sandboxenterprise.mienvio.mx/';
+                // $result = 'https://sandboxenterprise.mienvio.mx/';
+                $result = 'http://localhost/back-intcomex/public/';
+
                 break;
         }
         return $result;
@@ -132,7 +139,7 @@ class Data extends AbstractHelper
     {
         return $this->getConfigValue(self::XML_PATH_Street_store, $storeId);
     }
-    
+
     public function getOriginStreet2($storeId = null)
     {
         return $this->getConfigValue(self::XML_PATH_Street2_store, $storeId);
