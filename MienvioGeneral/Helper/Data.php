@@ -103,23 +103,16 @@ class Data extends AbstractHelper
         $result = '';
         switch ($env) {
             case 0://Production
-                // $result = 'https://app.mienvio.mx/';
-                $result = 'http://localhost/back-intcomex/public/';
+                $result = 'https://app.mienvio.mx/';
                 break;
             case 1: //Sandbox
-                // $result = 'https://sandboxenterprise.mienvio.mx/';
-                $result = 'http://localhost/back-intcomex/public/';
-
+                $result = 'https://sandboxenterprise.mienvio.mx/';
                 break;
             case 2:// Develop
-                // $result = 'https://sandboxenterprise.mienvio.mx/';
-                $result = 'http://localhost/back-intcomex/public/';
-
+                $result = 'https://sandboxenterprise.mienvio.mx/';
                 break;
             default:
-                // $result = 'https://sandboxenterprise.mienvio.mx/';
-                $result = 'http://localhost/back-intcomex/public/';
-
+                $result = 'https://sandboxenterprise.mienvio.mx/';
                 break;
         }
         return $result;
