@@ -46,12 +46,14 @@ class ObserverSuccess implements ObserverInterface
         /** @var \Magento\Sales\Model\Order $order */
         $order = $observer->getData('order');
         $shippingMethodObject = $order->getShippingMethod(true);
-        $this->_logger->debug('Starts Creating Quote');
+       
 
         $writer = new \Zend\Log\Writer\Stream(BP . '/var/log/mienvioQuotes.log');
         $logger = new \Zend\Log\Logger();
         $logger->addWriter($writer);
         $this->_logger = $logger;
+
+         $this->_logger->debug('Starts Creating Quote with Observer');
 
 
         if (!$shippingMethodObject) {
@@ -72,6 +74,8 @@ class ObserverSuccess implements ObserverInterface
         $dataOrder = $order->getData();
         $order_quote_id = $dataOrder['quote_id'];
         $order_shipping_amount = $dataOrder['shipping_amount'];
+        $this->_logger->debug('Method shipping amount', ['shipping amount'=>$order_shipping_amount]);
+
         $order_shipping_description = $dataOrder['shipping_description'];
         $order_shipping_method = $dataOrder['shipping_method'];
         $quoteId = $order->getQuoteId();
@@ -219,6 +223,9 @@ class ObserverSuccess implements ObserverInterface
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
                 try {
+
+                    $this->_logger->info("Make request to create order ObserverSuccess");
+
                     $mienvioResponse = $this->createQuoteFromItems(
                         $itemsMeasures['items'],
                         $addressFromId,
@@ -226,7 +233,8 @@ class ObserverSuccess implements ObserverInterface
                         $createQuoteUrl,
                         $chosenServicelevel,
                         $chosenProvider,
-                        $order->getIncrementId()
+                        $order->getIncrementId(),
+                        $order_shipping_amount
                     );
                     $mienvioQuoteId = $mienvioResponse['quote_id'];
                     $mienvioTraxId = isset($mienvioResponse['trax_code_id']) ? $mienvioResponse['trax_code_id'] : "NONE";
@@ -282,7 +290,7 @@ class ObserverSuccess implements ObserverInterface
                 'weight' => $orderWeight,
                 'declared_value' => $orderData['subtotal_incl_tax'],
                 'description' => $orderDescription,
-                'source_type' => 'api',
+                'source_type' => 'magento',
                 'length' => $orderLength,
                 'width' => $orderWidth,
                 'height' => $orderHeight,
@@ -321,17 +329,19 @@ class ObserverSuccess implements ObserverInterface
      * @param  string $orderId
      * @return string
      */
-    private function createQuoteFromItems($items, $addressFromId, $addressToId, $createQuoteUrl, $servicelevel, $provider, $orderId)
+    private function createQuoteFromItems($items, $addressFromId, $addressToId, $createQuoteUrl, $servicelevel, $provider, $orderId, $shippingAmount)
     {
         $quoteReqData = [
-            'items'         => $items,
-            'address_from'  => $addressFromId,
-            'address_to'    => $addressToId,
-            'servicelevel'  => $servicelevel,
-            'provider'      => $provider,
-            'object_purpose' => 'PURCHASE',
-            'order_id'      => $orderId,
-            'shop_url'     => $this->_storeManager->getStore()->getUrl()
+            'items'                 => $items,
+            'address_from'          => $addressFromId,
+            'address_to'            => $addressToId,
+            'servicelevel'          => $servicelevel,
+            'provider'              => $provider,
+            'object_purpose'        => 'PURCHASE',
+            'order_id'              => $orderId,
+            'shop_url'              => $this->_storeManager->getStore()->getUrl(),
+            'store_shipping_amount' => $shippingAmount,
+            'source_type'           => 'magento'
         ];
 
         $this->_logger->debug('Creating quote (ObserverSuccess)'.$createQuoteUrl, ['request' => json_encode($quoteReqData)]);
@@ -362,6 +372,7 @@ class ObserverSuccess implements ObserverInterface
             $orderDescription .= $productName . ' ';
 
             $product = $this->productFactory->create();
+            //Cargando producto por defecto
             $product->loadByAttribute('sku', $item->getSku());
 
             if (!$product) {
@@ -724,6 +735,10 @@ class ObserverSuccess implements ObserverInterface
         $chosenServicelevel = $this->_mienvioHelper->getServiceLevel();
         $chosenProvider = $this->_mienvioHelper->getProvider();
 
+        $dataOrder = $order->getData();
+        $order_shipping_amount = $dataOrder['shipping_amount'];
+        $this->_logger->debug('Method shipping amount free', ['shipping amount'=>$order_shipping_amount]);
+
         try {
             $baseUrl =  $this->_mienvioHelper->getEnvironment();
             $apiKey = $this->_mienvioHelper->getMienvioApi();
@@ -823,7 +838,8 @@ class ObserverSuccess implements ObserverInterface
                     $createQuoteUrl,
                     $chosenServicelevel,
                     $chosenProvider,
-                    $order->getIncrementId()
+                    $order->getIncrementId(),
+                    $order_shipping_amount
                 );
 
 

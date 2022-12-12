@@ -11,6 +11,7 @@ use Magento\Quote\Model\Quote\Address\RateRequest;
 use Psr\Log\LoggerInterface;
 use MienvioMagento\MienvioGeneral\Helper\Data as Helper;
 
+
 class Mienviorates extends AbstractCarrier implements CarrierInterface
 {
     /**
@@ -28,7 +29,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      */
     const IS_QUOTE_ENDPOINT_ACTIVE = true;
 
-    protected $_storeManager;
+    protected $_storeManager;    
 
     public function __construct(
         ScopeConfigInterface $scopeConfig,
@@ -39,7 +40,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         \Magento\Framework\HTTP\Client\Curl $curl,
         Helper $helperData,
         \Magento\Directory\Helper\Data $directoryHelper,
-        \Magento\Store\Model\StoreManagerInterface $storeManager,
+        \Magento\Store\Model\StoreManagerInterface $storeManager,      
         array $data = []
     ) {
         $this->_storeManager = $storeManager;
@@ -50,7 +51,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $this->_logger = $logger;
         $this->_curl = $curl;
         $this->_mienvioHelper = $helperData;
-        $this->directoryHelper = $directoryHelper;
+        $this->directoryHelper = $directoryHelper;        
         parent::__construct($scopeConfig, $rateErrorFactory, $logger, $data);
     }
 
@@ -158,8 +159,11 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $freeShippingSet = $shippingAddress->getFreeShipping();
 
 
-
+        $shippingAmount  = $cart->getQuote()->getShippingAddress()->getShippingAmount();
         $shippingAddress = $cart->getQuote()->getShippingAddress();
+
+        
+
         $rateResponse = $this->_rateResultFactory->create();
         $apiKey = $this->_mienvioHelper->getMienvioApi();
         if ($apiKey == null) {
@@ -186,6 +190,10 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $this->_logger = $logger;
 
 
+        
+        $this->_logger->debug('Mienviorates@collectRates:: collect rates ::'.$shippingAmount);
+        $this->_logger->debug('Mienviorates@collectRates:: shipping Address', ['Address' => $shippingAddress]);
+        $this->_logger->debug('Mienviorates@collectRates:: request', [$request]);
 
             /* ADDRESS CREATION */
             $destCountryId  = $request->getDestCountryId();
@@ -296,13 +304,19 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $packageWeight = $this->convertWeight($request->getPackageWeight());
 
             if (self::IS_QUOTE_ENDPOINT_ACTIVE) {
+
+                $this->_logger->debug('Mienviorates@collectRates - is quote endpoint active amount ::'.json_encode($shippingAmount));
+                $this->_logger->debug('Mienviorates@collectRates - request ::'.json_encode($request));
+
+
                 $rates = $this->quoteShipmentViaQuoteEndpoint(
                     $itemsMeasures['items'],
                     $addressFromId,
                     $addressToId,
                     $createQuoteUrl,
                     $filterList,
-                    $filterByCost
+                    $filterByCost,
+                    $shippingAmount
                 );
             } else {
                 $rates = $this->quoteShipment(
@@ -392,7 +406,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
      * @param  string $createQuoteUrl
      * @return string
      */
-    private function quoteShipmentViaQuoteEndpoint($items, $addressFromId, $addressToId, $createQuoteUrl, $filterList = null, $filterByCost = null)
+    private function quoteShipmentViaQuoteEndpoint($items, $addressFromId, $addressToId, $createQuoteUrl, $filterList = null, $filterByCost = null, $shippingAmount)
     {
         $quoteReqData = [
             'items'         => $items,
@@ -400,7 +414,9 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             'address_to'    => $addressToId,
             'shop_url'     => $this->_storeManager->getStore()->getUrl(),
             'filter_list' => $filterList,
-            'filter_by_cost' => $filterByCost
+            'filter_by_cost' => $filterByCost,
+            'store_shipping_amount' => $shippingAmount,
+            'source_type'           => 'magento'
         ];
 
         $this->_logger->debug('Creating quote (mienviorates) request: ' . json_encode($quoteReqData));
@@ -621,7 +637,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             'weight'         => $orderWeight,
             'declared_value' => $packageValue,
             'description'    => $orderDescription,
-            'source_type'    => 'api',
+            'source_type'    => 'magento',
             'length'         => $orderLength,
             'width'          => $orderWidth,
             'height'         => $orderHeight
@@ -658,7 +674,8 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
         $quoteReqData = [
             'items' => $items,
             'address_from' => $addressFromId,
-            'address_to' => $addressToId
+            'address_to' => $addressToId,
+            'source_type' => 'magento'
         ];
 
         $this->_curl->post($createQuoteUrl, json_encode($quoteReqData));
@@ -801,6 +818,7 @@ class Mienviorates extends AbstractCarrier implements CarrierInterface
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
             $productName = $item->getName();
             $orderDescription .= $productName . ' ';
+            //Cargando producto por defecto
             $product = $objectManager->create('Magento\Catalog\Model\Product')->loadByAttribute('name', $productName);
 
             $this->_logger->debug("TEST TO CHECK TYPE OF PRODUCT", ["typeOfProduct"=>$product->getTypeId()]);
