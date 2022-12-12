@@ -109,10 +109,10 @@ class Data extends AbstractHelper
                 $result = 'https://sandboxenterprise.mienvio.mx/';
                 break;
             case 2:// Develop
-                $result = 'https://sandboxenterprise.mienvio.mx/';
+                $result = 'https://intcomex.mienvio.mx/';
                 break;
             default:
-                $result = 'https://sandboxenterprise.mienvio.mx/';
+                $result = 'http://sandboxenterprise.mienvio.mx/';
                 break;
         }
         return $result;
